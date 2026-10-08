@@ -1,3 +1,3 @@
 * text=auto eol=lf
 *.star binary
-*.cmd text eol=crlf
+*.cmd -text
