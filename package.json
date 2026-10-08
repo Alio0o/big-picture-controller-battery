@@ -1,0 +1,17 @@
+{
+  "name": "big-picture-controller-battery",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "starlight pack --release",
+    "dev": "starlight pack",
+    "typecheck": "tsc --noEmit -p frontend",
+    "prepare": "starlight lsp"
+  },
+  "devDependencies": {
+    "@steambrew/starlight": "1.1.6",
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,16 @@
+[plugin]
+id = "big-picture-controller-battery"
+name = "Big Picture Controller Battery"
+version = "2.0.0"
+author = "Ali"
+description = "Shows your Bluetooth controller's battery next to the clock in Big Picture and the game overlay. Also: hold Menu in a game to open the Steam overlay (can be turned off)."
+
+[backend]
+entry = "backend/main.lua"
+sources = ["backend/**/*.lua"]
+
+[frontend]
+entry = "frontend/index.tsx"
+
+[compiler]
+output_path = "dist/big-picture-controller-battery.star"
