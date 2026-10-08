@@ -20,10 +20,13 @@ A short press still goes to the game as normal. Turn it off in the plugin settin
 
 ## Install
 
-1. Download `big-picture-controller-battery.star` from the [latest release](../../releases/latest).
+1. Download `big-picture-controller-battery.star` and `install.cmd` from the [latest release](../../releases/latest) into the same folder.
 2. Close Steam.
-3. Put the file in Steam's Millennium plugins folder, usually `C:\Program Files (x86)\Steam\millennium\plugins\`.
+3. Double-click `install.cmd`. It finds Steam's Millennium plugins folder and copies the plugin there. It stops if Steam is still running.
+   - Or copy the `.star` file yourself into Steam's Millennium plugins folder, usually `C:\Program Files (x86)\Steam\millennium\plugins\`.
 4. Start Steam. In desktop mode, open Millennium > Plugins, turn on **Big Picture Controller Battery**, and press Save Changes.
+
+When building from source, `install.cmd` in the repository installs `dist\big-picture-controller-battery.star`.
 
 To remove it, turn it off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
 
