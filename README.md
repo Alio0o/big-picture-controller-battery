@@ -36,7 +36,7 @@ If you start Steam through Windows' Xbox mode (full screen experience), the over
 
 Why: in Xbox mode, Windows gives controller input to programs in the background only if they are on its allow list (`HKLM\SOFTWARE\Microsoft\GameInput`, value `BackgroundInput`). Steam is on it. The plugin runs inside Millennium's plugin host, `millennium.luavm64.exe`, which is not. Everyone else gets a blank controller.
 
-Fix: double-click `xbox-mode-access.cmd` once. It asks for administrator rights, adds `millennium.luavm64.exe` to that list and keeps the other entries. Then start Xbox mode again.
+Fix: download `xbox-mode-access.cmd` from the [latest release](../../releases/latest) and double-click it once (or right-click > Run as administrator). It needs administrator rights and asks for them itself, then adds `millennium.luavm64.exe` to that list and keeps the other entries. Then start Xbox mode again.
 
 To undo it, run `xbox-mode-access.cmd remove` from a terminal.
 
