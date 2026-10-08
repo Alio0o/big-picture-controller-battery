@@ -1,7 +1,7 @@
 [plugin]
 id = "big-picture-controller-battery"
 name = "Big Picture Controller Battery"
-version = "2.0.0"
+version = "2.0.1"
 author = "Ali"
 description = "Shows your Bluetooth controller's battery next to the clock in Big Picture and the game overlay. Also: hold Menu in a game to open the Steam overlay (can be turned off)."
 

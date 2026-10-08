@@ -2,6 +2,7 @@
 import { DropdownItem, Field, SliderField, TextField, ToggleField } from 'millennium';
 import { useEffect, useRef, useState } from 'react';
 import { fromBackend } from './json';
+import { renderable } from './safe';
 
 type Settings = {
 	overlay_shortcut: boolean;
@@ -43,6 +44,8 @@ export function SettingsPage() {
 		}, delay);
 	};
 
+	if (!renderable(DropdownItem, Field, SliderField, TextField, ToggleField))
+		return <div style={{ padding: '12px' }}>Settings are not available in this Steam window. Open them from desktop Steam &gt; Millennium &gt; Plugins.</div>;
 	if (!settings) return <Field label={error || 'Loading settings...'} />;
 	if (!settings.windows) return <Field label="Not available" description={settings.unavailable_reason} />;
 
