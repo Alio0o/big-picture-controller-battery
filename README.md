@@ -30,6 +30,16 @@ When building from source, `install.cmd` in the repository installs `dist\big-pi
 
 To remove it, turn it off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
 
+## Xbox mode (optional extra step)
+
+If you start Steam through Windows' Xbox mode (full screen experience), the overlay shortcut does nothing until the desktop has been shown once. The battery badge is not affected.
+
+Why: in Xbox mode, Windows gives controller input to programs in the background only if they are on its allow list (`HKLM\SOFTWARE\Microsoft\GameInput`, value `BackgroundInput`). Steam is on it. The plugin runs inside Millennium's plugin host, `millennium.luavm64.exe`, which is not. Everyone else gets a blank controller.
+
+Fix: download `xbox-mode-access.cmd` from the [latest release](../../releases/latest) and double-click it once (or right-click > Run as administrator). It needs administrator rights and asks for them itself, then adds `millennium.luavm64.exe` to that list and keeps the other entries. Then start Xbox mode again.
+
+To undo it, run `xbox-mode-access.cmd remove` from a terminal.
+
 ## Settings
 
 Desktop Steam > Millennium > Plugins > Big Picture Controller Battery.
@@ -45,7 +55,7 @@ Changes apply right away.
 
 ## What it does on your PC
 
-Everything runs inside the plugin itself, through Millennium's Lua backend. There is no extra program, background service, script, or startup entry, and no network access.
+Everything runs inside the plugin itself, through Millennium's Lua backend. There is no extra program, background service, script, or startup entry, and no network access. The only exception is the optional `xbox-mode-access.cmd` above, which you run yourself.
 
 - **Battery:** reads the battery level that Windows already keeps for paired Bluetooth devices (the number Windows Settings shows), using the Windows Configuration Manager API (`cfgmgr32.dll`). It reads devices whose name contains "Controller" or "Gamepad". Nothing is sent to the controller.
 - **Controller buttons:** reads the controller through XInput (`xinput1_4.dll`) about 25 times a second, only while a game is running and a controller is connected.
