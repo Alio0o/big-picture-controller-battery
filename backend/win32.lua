@@ -62,6 +62,13 @@ ffi.cdef [[
     int32_t  QueryFullProcessImageNameW(void* hProcess, uint32_t dwFlags, uint16_t* lpExeName, uint32_t* lpdwSize);
     int32_t  CloseHandle(void* hObject);
 
+    // Xbox mode controller access (see access.lua)
+    int32_t  RegGetValueW(void* hkey, const uint16_t* lpSubKey, const uint16_t* lpValue, uint32_t dwFlags,
+        uint32_t* pdwType, void* pvData, uint32_t* pcbData);
+    uint32_t GetModuleFileNameW(void* hModule, uint16_t* lpFilename, uint32_t nSize);
+    intptr_t ShellExecuteW(void* hwnd, const uint16_t* lpOperation, const uint16_t* lpFile,
+        const uint16_t* lpParameters, const uint16_t* lpDirectory, int32_t nShowCmd);
+
     // Time and short waits
     uint64_t GetTickCount64(void);
     void     Sleep(uint32_t dwMilliseconds);
@@ -71,6 +78,8 @@ local ok, err = pcall(function()
     M.xinput = ffi.load("xinput1_4")
     M.cfgmgr = ffi.load("cfgmgr32")
     M.user32 = ffi.load("user32")
+    M.advapi32 = ffi.load("advapi32")
+    M.shell32 = ffi.load("shell32")
     M.kernel32 = ffi.C
 end)
 

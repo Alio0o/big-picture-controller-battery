@@ -1,5 +1,5 @@
 // Settings page in Millennium's plugin list (desktop Steam > Millennium > Plugins).
-import { DropdownItem, Field, SliderField, TextField, ToggleField } from 'millennium';
+import { ButtonItem, DropdownItem, Field, SliderField, TextField, ToggleField } from 'millennium';
 import { useEffect, useRef, useState } from 'react';
 import { fromBackend } from './json';
 
@@ -21,11 +21,13 @@ export function SettingsPage() {
 	const [error, setError] = useState('');
 	const [keysDraft, setKeysDraft] = useState('');
 	const pending = useRef<Record<string, number>>({});
+	const [access, setAccess] = useState<'on' | 'off' | 'waiting' | ''>('');
 
 	useEffect(() => {
 		backend.getSettings()
 			.then(value => { const s = fromBackend<Settings>(value); setSettings(s); setKeysDraft(s.keys); })
 			.catch(e => setError(String(e)));
+		backend.getXboxModeAccess().then(v => setAccess(v === 'on' ? 'on' : 'off')).catch(() => {});
 		return () => Object.values(pending.current).forEach(id => window.clearTimeout(id));
 	}, []);
 
@@ -41,6 +43,21 @@ export function SettingsPage() {
 				setError(String(e));
 			}
 		}, delay);
+	};
+
+	// Windows shows its own admin prompt; reg.exe then runs on its own, so check again a few times.
+	const changeAccess = async (state: 'on' | 'off') => {
+		const result = await backend.setXboxModeAccess(state).catch(() => 'error');
+		if (result !== 'started') { setError(result === 'cancelled' ? 'Windows did not get permission.' : 'Could not change Xbox mode access.'); return; }
+		setError('');
+		setAccess('waiting');
+		for (let i = 0; i < 10; i++) {
+			await new Promise(r => window.setTimeout(r, 1000));
+			const now = await backend.getXboxModeAccess().catch(() => 'off');
+			if (now === state) { setAccess(now); return; }
+		}
+		setAccess(state === 'on' ? 'off' : 'on');
+		setError('Xbox mode access did not change.');
 	};
 
 	if (!settings) return <Field label={error || 'Loading settings...'} />;
@@ -79,6 +96,18 @@ export function SettingsPage() {
 				disabled={!on}
 				onChange={e => { setKeysDraft(e.target.value); save('keys', e.target.value, 800); }}
 			/>
+			<ButtonItem
+				label="Xbox mode controller access"
+				description={
+					access === 'on' ? 'On. The shortcut also works in Windows Xbox mode.'
+					: access === 'waiting' ? 'Waiting for Windows...'
+					: 'Off. In Windows Xbox mode, Windows hides the controller from this plugin, so the shortcut does nothing. Turning this on needs administrator rights once.'
+				}
+				disabled={access === '' || access === 'waiting'}
+				onClick={() => changeAccess(access === 'on' ? 'off' : 'on')}
+			>
+				{access === 'on' ? 'Remove' : 'Turn on'}
+			</ButtonItem>
 			{error && <Field label="Not saved" description={error} />}
 		</>
 	);

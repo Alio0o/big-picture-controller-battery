@@ -28,17 +28,15 @@ A short press still goes to the game as normal. Turn it off in the plugin settin
 
 When building from source, `install.cmd` in the repository installs `dist\big-picture-controller-battery.star`.
 
-To remove it, turn it off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
+To remove it, first press **Remove** next to "Xbox mode controller access" if you turned it on, then turn the plugin off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
 
-## Xbox mode (optional extra step)
+## Xbox mode
 
-If you start Steam through Windows' Xbox mode (full screen experience), the overlay shortcut does nothing until the desktop has been shown once. The battery badge is not affected.
+If you start Steam through Windows' Xbox mode (full screen experience), Windows hides the controller from programs in the background unless they are allowed to read it. Steam is allowed; the plugin, which runs inside Millennium's plugin host `millennium.luavm64.exe`, is not. Without that permission the overlay shortcut does nothing in Xbox mode. The battery badge is not affected.
 
-Why: in Xbox mode, Windows gives controller input to programs in the background only if they are on its allow list (`HKLM\SOFTWARE\Microsoft\GameInput`, value `BackgroundInput`). Steam is on it. The plugin runs inside Millennium's plugin host, `millennium.luavm64.exe`, which is not. Everyone else gets a blank controller.
+Fix: in the plugin's settings, press **Turn on** next to "Xbox mode controller access". Windows asks for administrator rights once. This sets `BackgroundInput = 1` under `HKLM\SOFTWARE\Microsoft\GameInputRedist\Exe\millennium.luavm64.exe`, the same per-program setting Windows already has for `steam.exe`. It stays in place after restarts. **Remove** in the same place takes it out again.
 
-Fix: in the repository folder, double-click [`xbox-mode-access.cmd`](xbox-mode-access.cmd) once (or right-click > Run as administrator). It needs administrator rights and asks for them itself, then adds `millennium.luavm64.exe` to that list and keeps the other entries. Then start Xbox mode again.
-
-To undo it, run `xbox-mode-access.cmd remove` from a terminal.
+[`xbox-mode-access.cmd`](xbox-mode-access.cmd) in the repository does the same from outside Steam (`xbox-mode-access.cmd remove` to undo).
 
 ## Settings
 
@@ -50,15 +48,17 @@ Desktop Steam > Millennium > Plugins > Big Picture Controller Battery.
 | Hold time | 600 ms | 200 to 2000 ms |
 | Button | Menu | Menu or View |
 | Overlay keys | Shift+Tab | Must match Steam > Settings > In Game > Overlay shortcut keys |
+| Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
 
 Changes apply right away.
 
 ## What it does on your PC
 
-Everything runs inside the plugin itself, through Millennium's Lua backend. There is no extra program, background service, script, or startup entry, and no network access. The only exception is the optional `xbox-mode-access.cmd` above, which you run yourself.
+Everything runs inside the plugin itself, through Millennium's Lua backend. There is no extra program, background service, script, or startup entry, and no network access.
 
 - **Battery:** reads the battery level that Windows already keeps for paired Bluetooth devices (the number Windows Settings shows), using the Windows Configuration Manager API (`cfgmgr32.dll`). It reads devices whose name contains "Controller" or "Gamepad". Nothing is sent to the controller.
 - **Controller buttons:** reads the controller through XInput (`xinput1_4.dll`) about 25 times a second, only while a game is running and a controller is connected.
+- **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).

@@ -1,20 +1,16 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 rem Optional, for Windows Xbox mode (full screen experience) only.
-rem In Xbox mode, Windows gives controller input to background programs only
-rem when they are on its GameInput "BackgroundInput" list. Steam is on it;
-rem Millennium's plugin host (millennium.luavm64.exe) is not, so the overlay
-rem shortcut never sees the button. This adds it to that list.
+rem Does the same as the "Xbox mode controller access" button on the plugin's
+rem settings page: lets Millennium's plugin host read the controller while a
+rem game is in front, so the overlay shortcut works in Xbox mode.
 rem
-rem   xbox-mode-access.cmd           add the entry
-rem   xbox-mode-access.cmd remove    take it out again
+rem   xbox-mode-access.cmd           turn it on
+rem   xbox-mode-access.cmd remove    turn it off
 rem
-rem Needs administrator rights once (the list is in HKLM). Other entries on
-rem the list are kept as they are.
+rem Needs administrator rights (the setting is in HKLM) and asks for them.
 
-set "KEY=HKLM\SOFTWARE\Microsoft\GameInput"
-set "NAME=BackgroundInput"
-set "EXE=millennium.luavm64.exe"
+set "KEY=HKLM\SOFTWARE\Microsoft\GameInputRedist\Exe\millennium.luavm64.exe"
 
 fltmc >nul 2>&1
 if errorlevel 1 (
@@ -23,38 +19,14 @@ if errorlevel 1 (
     exit /b
 )
 
-set "VALUE="
-for /f "tokens=2,*" %%A in ('reg query "%KEY%" /v %NAME% 2^>nul ^| findstr /c:"REG_MULTI_SZ"') do set "VALUE=%%B"
-set "WRAPPED=\0!VALUE!\0"
-set "PRESENT=0"
-if /i not "!WRAPPED:\0%EXE%\0=!"=="!WRAPPED!" set "PRESENT=1"
-
 if /i "%~1"=="remove" (
-    if "!PRESENT!"=="0" (
-        echo %EXE% is not on the list. Nothing to do.
-        goto :done
-    )
-    set "NEW=!WRAPPED:\0%EXE%\0=\0!"
-    if "!NEW!"=="\0" (set "NEW=") else set "NEW=!NEW:~2,-2!"
-    reg add "%KEY%" /v %NAME% /t REG_MULTI_SZ /d "!NEW!" /f >nul || goto :fail
-    echo Removed %EXE% from the list.
-    goto :done
+    reg delete "%KEY%" /f >nul 2>&1
+    echo Xbox mode controller access is off.
+) else (
+    reg add "%KEY%" /v BackgroundInput /t REG_DWORD /d 1 /f >nul || (echo Could not change the setting. & goto :done)
+    echo Xbox mode controller access is on. Start Xbox mode again if it is running.
 )
 
-if "!PRESENT!"=="1" (
-    echo %EXE% is already on the list. Nothing to do.
-    goto :done
-)
-if defined VALUE (set "NEW=!VALUE!\0%EXE%") else set "NEW=%EXE%"
-reg add "%KEY%" /v %NAME% /t REG_MULTI_SZ /d "!NEW!" /f >nul || goto :fail
-echo Added %EXE%. The overlay shortcut now works in Xbox mode.
-echo Start Xbox mode again (or restart Steam) if it is already running.
-goto :done
-
-:fail
-echo Could not change %KEY%.
 :done
 echo.
-echo List now:
-reg query "%KEY%" /v %NAME% 2>nul | findstr /c:"REG_MULTI_SZ"
 pause
