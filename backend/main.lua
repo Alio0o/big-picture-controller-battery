@@ -4,6 +4,7 @@ local win32      = require("win32")
 local battery    = require("battery")
 local settings   = require("settings")
 local shortcut   = require("shortcut")
+local access     = require("access")
 
 -- Small JSON encoder for the flat tables sent to the frontend.
 local function quote(text)
@@ -71,6 +72,28 @@ function setSetting(key, value)
     elseif key == "hold_ms" then parsed = tonumber(value) end
     local ok, message = settings.set(key, parsed)
     return ok and "ok" or message
+end
+
+---@ffi
+--- Whether this plugin may read the controller in Xbox mode: "on" or "off".
+---@return string
+function getXboxModeAccess()
+    local ok, result = pcall(access.status)
+    return ok and result or "off"
+end
+
+---@ffi
+--- Turns Xbox mode controller access on or off. Windows asks for administrator
+--- rights. Returns "started", "cancelled" or "error".
+---@param state string "on" or "off"
+---@return string
+function setXboxModeAccess(state)
+    local ok, result = pcall(state == "on" and access.enable or access.disable)
+    if not ok then
+        logger:error("Changing Xbox mode access failed: " .. tostring(result))
+        return "error"
+    end
+    return result
 end
 
 local function on_load()
