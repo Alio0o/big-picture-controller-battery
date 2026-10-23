@@ -2,8 +2,10 @@
 --
 -- Windows keeps a volume and mute switch per program (the Volume mixer).
 -- mute(pid) turns on the mute switch of the game's audio sessions, on every
--- playback device, for the game and the processes it started. Steam's own
--- sounds come from steamwebhelper.exe and keep playing.
+-- playback device: the process Steam named and what it started, and every
+-- other program Steam started that is not part of Steam (a game started
+-- through a launcher is often not below the process Steam names). Steam's
+-- own sounds come from steamwebhelper.exe and keep playing.
 --
 -- Only sessions this module muted are unmuted again. A game the user muted
 -- in the Volume mixer stays muted.
@@ -112,27 +114,33 @@ local function each_session(visit)
     collection.lpVtbl.Release(collection)
 end
 
--- pid and every process it started, directly or further down.
-local function process_tree(root)
+-- Every process: { { pid, parent, exe } }, exe in lower case.
+local function processes()
     local ffi = win32.ffi
-    local tree = { [root] = true }
+    local list = {}
     local snapshot = win32.kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    if snapshot == nil or ffi.cast("intptr_t", snapshot) == INVALID_HANDLE then return tree end
+    if snapshot == nil or ffi.cast("intptr_t", snapshot) == INVALID_HANDLE then return list end
     local entry = ffi.new("COUCH_PROCESSENTRY32W")
     entry.dwSize = ffi.sizeof(entry)
-    local parents = {}
     if win32.kernel32.Process32FirstW(snapshot, entry) ~= 0 then
         repeat
-            parents[#parents + 1] = { entry.th32ProcessID, entry.th32ParentProcessID }
+            list[#list + 1] = { entry.th32ProcessID, entry.th32ParentProcessID, win32.narrow(entry.szExeFile, 260):lower() }
         until win32.kernel32.Process32NextW(snapshot, entry) == 0
     end
     win32.kernel32.CloseHandle(snapshot)
-    -- Keep adding children until nothing new turns up.
+    return list
+end
+
+-- The roots and every process they started, directly or further down,
+-- leaving out processes for which skip(exe) is true (and what they started).
+local function descendants(list, roots, skip)
+    local tree = {}
+    for pid in pairs(roots) do tree[pid] = true end
     local grew = true
     while grew do
         grew = false
-        for _, p in ipairs(parents) do
-            if tree[p[2]] and not tree[p[1]] and p[1] ~= p[2] and p[1] ~= 0 then
+        for _, p in ipairs(list) do
+            if tree[p[2]] and not tree[p[1]] and p[1] ~= p[2] and p[1] ~= 0 and not (skip and skip(p[3])) then
                 tree[p[1]] = true
                 grew = true
             end
@@ -140,19 +148,53 @@ local function process_tree(root)
     end
     return tree
 end
+
+-- pid and every process it started.
+local function process_tree(root, list)
+    return descendants(list or processes(), { [root] = true })
+end
 M.process_tree = process_tree
 
--- Mutes the audio of pid and its child processes. Returns a short summary,
+-- Steam's own programs. Everything else Steam started is a game, a game's
+-- launcher, or something a game started.
+local STEAM_OWN = {
+    ["steam.exe"] = true, ["steamwebhelper.exe"] = true, ["steamservice.exe"] = true,
+    ["gameoverlayui.exe"] = true, ["gameoverlayui64.exe"] = true, ["steamerrorreporter.exe"] = true,
+    ["steamerrorreporter64.exe"] = true, ["gldriverquery.exe"] = true, ["gldriverquery64.exe"] = true,
+    ["vulkandriverquery.exe"] = true, ["vulkandriverquery64.exe"] = true,
+    ["millennium.luavm64.exe"] = true, ["millennium.crashhandler64.exe"] = true,
+    -- Web browsers Steam opened for a link are not games.
+    ["msedge.exe"] = true, ["chrome.exe"] = true, ["brave.exe"] = true, ["firefox.exe"] = true,
+    ["opera.exe"] = true, ["vivaldi.exe"] = true, ["explorer.exe"] = true,
+}
+
+-- Processes started by Steam that are not Steam's own: the running games.
+local function steam_games(list)
+    local steam = {}
+    for _, p in ipairs(list) do
+        if p[3] == "steam.exe" then steam[p[1]] = true end
+    end
+    local tree = descendants(list, steam, function(exe) return STEAM_OWN[exe] end)
+    for pid in pairs(steam) do tree[pid] = nil end
+    return tree
+end
+M.steam_games = function(list) return steam_games(list or processes()) end
+
+-- Mutes the game: the process Steam reported (pid, may be 0) with what it
+-- started, and every other game Steam started. Returns a short summary,
 -- for example "muted 1 of 1 session(s)".
 function M.mute(pid)
     if not win32.available then return "unavailable" end
-    pid = tonumber(pid)
-    if not pid or pid <= 0 then return "no game" end
-    local tree = process_tree(pid)
+    pid = tonumber(pid) or 0
+    local list = processes()
+    local targets = steam_games(list)
+    if pid > 0 then
+        for p in pairs(process_tree(pid, list)) do targets[p] = true end
+    end
     local found, newly = 0, 0
     with_com(function()
         each_session(function(session_pid, instance, volume)
-            if not tree[session_pid] then return end
+            if not targets[session_pid] then return end
             found = found + 1
             if muted[instance] then return end
             local state = win32.ffi.new("int32_t[1]")
@@ -163,7 +205,7 @@ function M.mute(pid)
             end
         end)
     end)
-    if newly > 0 then logger:info("Muted " .. newly .. " audio session(s) of process " .. pid) end
+    if newly > 0 then logger:info("Muted " .. newly .. " audio session(s) (process " .. pid .. ")") end
     return "muted " .. newly .. " of " .. found .. " session(s)"
 end
 

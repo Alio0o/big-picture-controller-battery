@@ -169,6 +169,15 @@ local sessions = audio.sessions()
 print("audio sessions: " .. #sessions)
 check("unmute with nothing muted", unmuteGame() == 0)
 check("process tree has its root", audio.process_tree(4242)[4242] == true)
+local fake = {
+    { 10, 1, "steam.exe" }, { 11, 10, "steamwebhelper.exe" }, { 12, 11, "steamwebhelper.exe" },
+    { 20, 10, "upc.exe" }, { 21, 20, "game.exe" }, { 22, 21, "crashpad.exe" },
+    { 30, 10, "brave.exe" }, { 31, 30, "brave.exe" }, { 40, 2, "other.exe" }, { 50, 10, "gameoverlayui64.exe" },
+}
+local games = audio.steam_games(fake)
+check("games are what Steam started", games[20] and games[21] and games[22] and true or false)
+check("Steam itself, browsers and others are not games", not (games[10] or games[11] or games[12] or games[30]
+    or games[31] or games[40] or games[50]))
 
 -- With COUCH_TEST_PID set to a process that plays sound (or that started one
 -- that does), mutes and unmutes it once. Use something silent.
