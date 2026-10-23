@@ -5,6 +5,7 @@ local battery    = require("battery")
 local settings   = require("settings")
 local shortcut   = require("shortcut")
 local access     = require("access")
+local audio      = require("audio")
 
 -- Small JSON encoder for the flat tables sent to the frontend.
 local function quote(text)
@@ -96,6 +97,33 @@ function setXboxModeAccess(state)
     return result
 end
 
+---@ffi
+--- Mutes the game with this process id (and the processes it started) while
+--- the Steam overlay is open. Returns a short summary for the log.
+---@param pid number
+---@return string
+function muteGame(pid)
+    if not settings.get().game_mute then return "off" end
+    local ok, result = pcall(audio.mute, pid)
+    if not ok then
+        logger:error("Muting the game failed: " .. tostring(result))
+        return "error"
+    end
+    return result
+end
+
+---@ffi
+--- Unmutes what muteGame muted. Returns how many audio sessions.
+---@return number
+function unmuteGame()
+    local ok, result = pcall(audio.unmute)
+    if not ok then
+        logger:error("Unmuting the game failed: " .. tostring(result))
+        return 0
+    end
+    return result
+end
+
 local function on_load()
     if win32.available then
         logger:info("Loaded on Millennium " .. millennium.version())
@@ -110,6 +138,7 @@ local function on_load()
 end
 
 local function on_unload()
+    pcall(audio.unmute)
     logger:info("Unloaded")
 end
 

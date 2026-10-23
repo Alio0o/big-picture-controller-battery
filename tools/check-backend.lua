@@ -87,5 +87,34 @@ print("battery: " .. getBattery())
 setSetting("hold_ms", "5000")
 print("shortcut poll: " .. pollShortcut())
 
+-- Audio sessions. Lists them; changes nothing unless a test process is given.
+local audio = require("audio")
+local sessions = audio.sessions()
+print("audio sessions: " .. #sessions)
+check("unmute with nothing muted", unmuteGame() == 0)
+check("process tree has its root", audio.process_tree(4242)[4242] == true)
+
+-- With COUCH_TEST_PID set to a process that plays sound (or that started one
+-- that does), mutes and unmutes it once. Use something silent.
+local test_pid = tonumber(os.getenv("COUCH_TEST_PID") or "")
+if test_pid then
+    local function is_muted()
+        local tree, any, all = audio.process_tree(test_pid), false, true
+        for _, s in ipairs(audio.sessions()) do
+            if tree[s.pid] then any = true; all = all and s.muted end
+        end
+        return any and all, any
+    end
+    local _, has_session = is_muted()
+    check("test process has an audio session", has_session)
+    setSetting("game_mute", "true")
+    print("mute: " .. muteGame(test_pid))
+    check("test process muted", is_muted())
+    check("mute twice changes nothing", muteGame(test_pid):match("^muted 0 ") ~= nil)
+    check("unmute", unmuteGame() >= 1 and not is_muted())
+    setSetting("game_mute", "false")
+    check("mute off in settings", muteGame(test_pid) == "off")
+end
+
 print(failures == 0 and "All checks passed" or (failures .. " check(s) failed"))
 os.exit(failures == 0 and 0 or 1)
