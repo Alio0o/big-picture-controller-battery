@@ -1,9 +1,10 @@
 // Settings page in Millennium's plugin list (desktop Steam > Millennium > Plugins).
 //
-// Every row is a Steam Field: a title-case label, the description under it,
-// and the control on the right (or below it for sliders and text), so the
-// spacing matches Steam's own settings. Section titles are Fields too, so
-// they share the rows' indent.
+// Every row is a Steam Field, which Millennium draws as a card: the title
+// with its control on the right in one line, and the description under them
+// across the whole card (a control beside the description would squeeze it
+// into a narrow column). Sliders and text boxes sit full width below. Section
+// titles are plain text between the cards, all in one style.
 import { DialogButton, Dropdown, Field, SliderField, TextField, Toggle } from 'millennium';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { loadSettings, saveSetting, Settings } from './config';
@@ -18,31 +19,28 @@ const BUTTON_STYLE = { minWidth: '120px', padding: '0 20px', whiteSpace: 'nowrap
 
 function Section({ title, first }: { title: string; first?: boolean }) {
 	return (
-		<>
-			{!first && <div style={{ height: SECTION_GAP }} />}
-			<Field
-				label={<span style={{ fontSize: '1.15em', fontWeight: 700 }}>{title}</span>}
-				bottomSeparator="standard"
-				focusable={false}
-			/>
-		</>
+		<div style={{ margin: `${first ? 0 : SECTION_GAP}px 0 8px`, fontSize: '1.15em', fontWeight: 600, lineHeight: 1.3 }}>
+			{title}
+		</div>
 	);
 }
 
-// A row with the control on the right, centred against the label.
+// A card with the title and its control in one line, the description below
+// across the whole card. The card itself is not focusable; the control is.
 function Row(props: { label: string; description?: ReactNode; disabled?: boolean; children: ReactNode }) {
 	return (
 		<Field
-			label={props.label}
+			label={
+				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', minHeight: '40px' }}>
+					<span>{props.label}</span>
+					<div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center' }}>{props.children}</div>
+				</div>
+			}
 			description={props.description}
 			disabled={props.disabled}
-			childrenContainerWidth="min"
-			inlineWrap="keep-inline"
-			verticalAlignment="center"
+			focusable={false}
 			bottomSeparator="standard"
-		>
-			{props.children}
-		</Field>
+		/>
 	);
 }
 
