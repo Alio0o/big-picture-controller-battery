@@ -1,9 +1,12 @@
 -- Music files for the Home and Library background music.
 --
 -- The music setting is a file or a folder. Empty means the default folder,
--- Music\Couch Mode in the user's profile. Steam's UI cannot open local
--- files itself, so the frontend reads the chosen file from here in pieces.
--- Only files from the current list can be read.
+-- "Couch Mode" in the user's Music folder, which is created when the music is
+-- turned on. Steam's UI cannot open local files itself, so the frontend reads
+-- the chosen file from here in pieces. Only files from the current list can
+-- be read. Files and folders go through the Windows API, so names in any
+-- language work.
+local win32 = require("win32")
 local settings = require("settings")
 
 local M = {}
@@ -15,15 +18,15 @@ local TYPES = {
     m4a = "audio/mp4", aac = "audio/aac", wav = "audio/wav", flac = "audio/flac", webm = "audio/webm",
 }
 
-local okfs, fs = pcall(require, "fs")
-if not okfs or type(fs) ~= "table" then fs = nil end
-M.set_fs = function(value) fs = value end
-
 local tracks = {}
 
 function M.default_folder()
-    local home = os.getenv("USERPROFILE")
-    return home and (home .. "\\Music\\Couch Mode") or nil
+    local music = win32.available and win32.music_folder()
+    if not music then
+        local home = os.getenv("USERPROFILE")
+        music = home and (home .. "\\Music")
+    end
+    return music and (music .. "\\Couch Mode") or nil
 end
 
 local function kind(path)
@@ -31,46 +34,45 @@ local function kind(path)
     return ext and TYPES[ext:lower()]
 end
 
-local function size_of(path)
-    local file = io.open(path, "rb")
-    if not file then return nil end
-    local size = file:seek("end")
-    file:close()
-    return size
-end
-
-local function is_directory(path)
-    if fs then
-        local ok, dir = pcall(fs.is_directory, path)
-        return ok and dir
-    end
-    return false
-end
-
 -- Returns { folder, tracks = { { path, name, size, type } }, error }.
 function M.list()
-    local setting = settings.get().music_path
-    local path = (setting ~= "" and setting or M.default_folder() or ""):gsub('^"(.*)"$', "%1")
+    local config = settings.get()
+    local setting = config.music_path:gsub('^%s*"?(.-)"?%s*$', "%1"):gsub("[\\/]+$", "")
+    local path = setting ~= "" and setting or M.default_folder() or ""
     local result = { folder = path, tracks = {} }
     tracks = {}
-    local candidates = {}
     if path == "" then
         result.error = "No music file or folder set"
-    elseif is_directory(path) then
-        local ok, entries = pcall(fs.list, path)
-        if ok and type(entries) == "table" then
-            for _, entry in ipairs(entries) do
-                if entry.is_file then candidates[#candidates + 1] = entry.path end
-            end
-            table.sort(candidates, function(a, b) return a:lower() < b:lower() end)
-        end
+        return result
+    end
+    if not win32.available then
+        result.error = win32.reason
+        return result
+    end
+
+    local what = win32.path_kind(path)
+    if not what and setting == "" and config.music then
+        win32.create_folder(path)
+        what = win32.path_kind(path)
+    end
+    if not what then
+        result.error = (setting == "" and "Put music files in " or "Not found: ") .. path
+        return result
+    end
+
+    local candidates = {}
+    if what == "folder" then
+        for _, name in ipairs(win32.list_files(path)) do candidates[#candidates + 1] = path .. "\\" .. name end
+        table.sort(candidates, function(a, b) return a:lower() < b:lower() end)
     else
         candidates[1] = path
     end
 
+    local too_big = 0
     for _, file in ipairs(candidates) do
         local type_ = kind(file)
-        local size = type_ and size_of(file)
+        local size = type_ and win32.file_size(file)
+        if size and size > MAX_SIZE then too_big = too_big + 1 end
         if size and size > 0 and size <= MAX_SIZE then
             tracks[file] = size
             result.tracks[#result.tracks + 1] = {
@@ -78,9 +80,14 @@ function M.list()
             }
         end
     end
-    if not result.error and #result.tracks == 0 then
-        result.error = #candidates == 0 and ("Nothing found at " .. path)
-            or "No playable music there (mp3, ogg, m4a, aac, wav, flac or webm, up to 64 MB)"
+    if #result.tracks == 0 then
+        if #candidates == 0 then
+            result.error = "Put music files in " .. path
+        elseif too_big > 0 then
+            result.error = "The music is bigger than 64 MB per file"
+        else
+            result.error = "No playable music in " .. path .. " (mp3, ogg, opus, m4a, aac, wav, flac or webm)"
+        end
     end
     return result
 end
@@ -109,11 +116,8 @@ function M.chunk(path, offset)
     if not size then error("not a listed music file", 0) end
     offset = tonumber(offset) or 0
     if offset < 0 or offset >= size then return "" end
-    local file = io.open(path, "rb")
-    if not file then error("cannot open the music file", 0) end
-    file:seek("set", offset)
-    local data = file:read(CHUNK) or ""
-    file:close()
+    local data = win32.read_file(path, offset, math.min(CHUNK, size - offset))
+    if not data then error("cannot read the music file", 0) end
     return base64(data)
 end
 

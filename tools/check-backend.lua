@@ -95,8 +95,37 @@ local first, second = readMusic(song, 0), readMusic(song, music.CHUNK)
 check("music read in pieces", #first == math.ceil(music.CHUNK / 3) * 4 and #second > 0 and readMusic(song, 900000) == "")
 check("music refuses other files", readMusic(tmp, 0) == "")
 setSetting("music_path", song .. ".txt")
-check("music reports nothing playable", getMusic():match('"error":"Nothing') ~= nil or getMusic():match('"error":"No playable') ~= nil)
+check("music reports a missing file", getMusic():match('"error":"Not found: ') ~= nil)
+setSetting("music_path", '"' .. song .. '"')
+check("music accepts a quoted path", getMusic():match('"size":900000') ~= nil)
 os.remove(song)
+
+-- Music folders, including a name outside English (UTF-8 here).
+local win32 = require("win32")
+local ffi = require("ffi")
+ffi.cdef("int32_t RemoveDirectoryW(const uint16_t* lpPathName);")
+local base = os.getenv("TEMP") .. "\\couch-mode-check"
+local folder = base .. "\\M\195\188sik \226\156\147"
+win32.create_folder(base)
+check("unicode folder created", win32.create_folder(folder) and win32.path_kind(folder) == "folder")
+check("utf8 round trip", win32.utf8(win32.utf16(folder)) == folder)
+setSetting("music_path", folder .. "\\")
+check("music empty folder", getMusic():match('"error":"Put music files in ') ~= nil)
+for _, name in ipairs({ "b.MP3", "a.ogg", "notes.txt" }) do
+    f = assert(io.open(base .. "\\" .. name, "wb"))
+    f:write("abc")
+    f:close()
+end
+setSetting("music_path", base)
+local list = music.list()
+check("music folder lists playable files in order", #list.tracks == 2 and list.tracks[1].name == "a.ogg"
+    and list.tracks[2].name == "b.MP3" and list.tracks[2].type == "audio/mpeg")
+check("music folder file read", readMusic(base .. "\\a.ogg", 0) == "YWJj")
+for _, name in ipairs({ "b.MP3", "a.ogg", "notes.txt" }) do os.remove(base .. "\\" .. name) end
+ffi.C.RemoveDirectoryW(win32.utf16(folder))
+ffi.C.RemoveDirectoryW(win32.utf16(base))
+check("music default folder", (music.default_folder() or ""):match("\\Couch Mode$") ~= nil)
+print("music default folder: " .. tostring(music.default_folder()))
 fresh()
 
 -- Hold logic (no Windows calls)

@@ -60,7 +60,7 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 | Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
 | Mute the game while the overlay is open | On | |
 | Music on Home and Library | Off | |
-| Music file or folder | Empty | A music file, or a folder whose files play in name order. Empty means `Music\Couch Mode` in your user folder |
+| Music file or folder | Empty | A music file, or a folder whose files play in name order. Empty means a `Couch Mode` folder in your Music folder, created when you turn the music on |
 | Music volume | 40% | |
 
 Home music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.
@@ -88,7 +88,6 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
 - Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
 - Home music decides the page from Big Picture's own navigation. If Steam changes that, the music only pauses for videos, games and focus.
-- Music paths with letters outside English may not open.
 - Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.5.0, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source

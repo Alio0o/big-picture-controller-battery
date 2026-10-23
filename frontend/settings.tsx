@@ -143,7 +143,7 @@ export function SettingsPage() {
 			/>
 			<TextField
 				label="Music file or folder"
-				description={`Empty means ${music?.folder && !settings.music_path ? music.folder : 'Music\\Couch Mode in your user folder'}. ${musicDescription(music)}`}
+				description={`Empty means ${music?.folder && !settings.music_path ? music.folder : 'a Couch Mode folder in your Music folder'}. ${musicDescription(music)}`}
 				value={pathDraft}
 				onChange={e => { setPathDraft(e.target.value); save('music_path', e.target.value.trim(), 800, checkMusic); }}
 			/>
