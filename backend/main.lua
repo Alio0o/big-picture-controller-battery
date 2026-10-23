@@ -7,6 +7,7 @@ local shortcut   = require("shortcut")
 local access     = require("access")
 local audio      = require("audio")
 local music      = require("music")
+local dialog     = require("dialog")
 
 -- Small JSON encoder for the tables sent to the frontend. A table with keys
 -- 1..n is a list; an empty table is an object.
@@ -155,6 +156,21 @@ function readMusic(path, offset)
         return ""
     end
     return result
+end
+
+---@ffi
+--- Opens Windows' Open dialog to choose the music. Returns the chosen path,
+--- "" when cancelled, or "error: ..." when the dialog cannot open.
+---@param kind string "file" or "folder"
+---@return string
+function browseMusic(kind)
+    local ok, path, err = pcall(dialog.choose, kind == "folder" and "folder" or "file", music.start_folder())
+    if not ok or path == nil then
+        local message = tostring(ok and err or path)
+        logger:error("Music dialog failed: " .. message)
+        return "error: " .. message
+    end
+    return path
 end
 
 local function on_load()

@@ -15,6 +15,7 @@ export type MusicList = { folder: string; tracks: Track[]; error?: string };
 
 const TICK_MS = 250;
 const FADE_MS = 1200;
+const RELIST_MS = 10000;
 
 let alive = false;
 let timer: number | null = null;
@@ -26,6 +27,7 @@ const kindOf = new WeakMap<Document, 'main' | 'overlay'>();
 let audio: HTMLAudioElement | null = null;
 let list: MusicList | null = null;
 let listing: Promise<void> | null = null;
+let listedAt = 0;
 let index = 0;
 let loadedPath = '';
 let loading: Promise<void> | null = null;
@@ -42,8 +44,8 @@ export async function listMusic(): Promise<MusicList> {
 
 function refreshList() {
 	listing ??= listMusic()
-		.then(value => { list = value; index = 0; })
-		.catch(error => { list = { folder: '', tracks: [], error: String(error) }; })
+		.then(value => { list = value; index = 0; listedAt = Date.now(); })
+		.catch(error => { list = { folder: '', tracks: [], error: String(error) }; listedAt = Date.now(); })
 		.finally(() => { listing = null; });
 }
 
@@ -140,7 +142,11 @@ function reason(): string {
 	const s = settings();
 	if (!s?.music) return 'off';
 	if (!list) { refreshList(); return 'loading the list'; }
-	if (list.tracks.length === 0) return list.error || 'no music';
+	if (list.tracks.length === 0) {
+		// Look again now and then, so music added to the folder starts playing.
+		if (Date.now() - listedAt > RELIST_MS) refreshList();
+		return list.error || 'no music';
+	}
 	if (gameRunning() || overlayOpen()) return 'a game is running';
 	const doc = bigPicture();
 	if (!doc) return 'Big Picture is not open';

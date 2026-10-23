@@ -22,6 +22,7 @@ export function SettingsPage() {
 	const [keysDraft, setKeysDraft] = useState('');
 	const [pathDraft, setPathDraft] = useState('');
 	const [music, setMusic] = useState<MusicList | null>(null);
+	const [browsing, setBrowsing] = useState(false);
 	const pending = useRef<Record<string, number>>({});
 	const [access, setAccess] = useState<'on' | 'off' | 'waiting' | ''>('');
 
@@ -64,6 +65,25 @@ export function SettingsPage() {
 		}
 		setAccess(state === 'on' ? 'off' : 'on');
 		setError('Xbox mode access did not change.');
+	};
+
+	const usePath = (path: string) => {
+		setPathDraft(path);
+		save('music_path', path, 0, checkMusic);
+	};
+
+	// The backend waits while Windows' dialog is open, then returns the choice.
+	const browse = async (kind: 'file' | 'folder') => {
+		setBrowsing(true);
+		try {
+			const result = await backend.browseMusic(kind);
+			if (result.startsWith('error: ')) setError(`The ${kind} picker did not open: ${result.slice(7)}`);
+			else if (result) usePath(result);
+		} catch (e) {
+			setError(String(e));
+		} finally {
+			setBrowsing(false);
+		}
 	};
 
 	if (!settings) return <Field label={error || 'Loading settings...'} />;
@@ -141,9 +161,36 @@ export function SettingsPage() {
 				checked={settings.music}
 				onChange={checked => save('music', checked)}
 			/>
+			<Field
+				label={settings.music_path ? 'Music from' : 'Music from (default folder)'}
+				description={`${music?.folder || '...'} · ${musicDescription(music)}`}
+			/>
+			<ButtonItem
+				label="Choose a music file"
+				description="Opens Windows' file picker on the desktop. Plays this one file on repeat."
+				disabled={browsing}
+				onClick={() => browse('file')}
+			>
+				Browse...
+			</ButtonItem>
+			<ButtonItem
+				label="Choose a music folder"
+				description="Plays every music file in the folder, in name order."
+				disabled={browsing}
+				onClick={() => browse('folder')}
+			>
+				Browse...
+			</ButtonItem>
+			<ButtonItem
+				label="Use the default folder"
+				description="The Couch Mode folder in your Music folder. It is created when the music is on."
+				disabled={browsing || !settings.music_path}
+				onClick={() => usePath('')}
+			>
+				Use default
+			</ButtonItem>
 			<TextField
-				label="Music file or folder"
-				description={`Empty means ${music?.folder && !settings.music_path ? music.folder : 'a Couch Mode folder in your Music folder'}. ${musicDescription(music)}`}
+				label="Or type a file or folder path"
 				value={pathDraft}
 				onChange={e => { setPathDraft(e.target.value); save('music_path', e.target.value.trim(), 800, checkMusic); }}
 			/>

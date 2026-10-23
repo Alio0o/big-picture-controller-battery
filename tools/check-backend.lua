@@ -126,7 +126,22 @@ ffi.C.RemoveDirectoryW(win32.utf16(folder))
 ffi.C.RemoveDirectoryW(win32.utf16(base))
 check("music default folder", (music.default_folder() or ""):match("\\Couch Mode$") ~= nil)
 print("music default folder: " .. tostring(music.default_folder()))
+setSetting("music_path", os.getenv("WINDIR") .. "\\win.ini")
+check("dialog starts in the music's folder", music.start_folder() == os.getenv("WINDIR"))
+setSetting("music_path", "")
+check("dialog start folder exists", win32.path_kind(music.start_folder() or "?") == "folder")
 fresh()
+
+-- The Open dialog. Needs someone (or tools: a script) to answer it, so it only
+-- runs with COUCH_TEST_DIALOG set to the file path to choose. The folder
+-- dialog that follows is expected to be cancelled.
+local dialog_file = os.getenv("COUCH_TEST_DIALOG")
+if dialog_file then
+    local chosen = browseMusic("file")
+    print("dialog file: " .. chosen)
+    check("dialog returns the chosen file", chosen:lower() == dialog_file:lower())
+    check("dialog cancelled", browseMusic("folder") == "")
+end
 
 -- Hold logic (no Windows calls)
 local h = shortcut.hold_step

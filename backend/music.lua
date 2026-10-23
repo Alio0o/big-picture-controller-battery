@@ -29,6 +29,23 @@ function M.default_folder()
     return music and (music .. "\\Couch Mode") or nil
 end
 
+-- Where the Open dialog starts: the folder of the current music, the default
+-- folder, or the Music folder, whichever exists first.
+function M.start_folder()
+    local setting = settings.get().music_path:gsub('^%s*"?(.-)"?%s*$', "%1")
+    local candidates = {}
+    if setting ~= "" then
+        candidates[#candidates + 1] = setting
+        candidates[#candidates + 1] = setting:match("^(.*)[\\/][^\\/]*$")
+    end
+    candidates[#candidates + 1] = M.default_folder()
+    candidates[#candidates + 1] = win32.available and win32.music_folder() or nil
+    for _, path in ipairs(candidates) do
+        if path and win32.available and win32.path_kind(path) == "folder" then return path end
+    end
+    return nil
+end
+
 local function kind(path)
     local ext = path:match("%.([%w]+)$")
     return ext and TYPES[ext:lower()]

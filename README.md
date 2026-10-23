@@ -60,7 +60,7 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 | Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
 | Mute the game while the overlay is open | On | |
 | Music on Home and Library | Off | |
-| Music file or folder | Empty | A music file, or a folder whose files play in name order. Empty means a `Couch Mode` folder in your Music folder, created when you turn the music on |
+| Music file or folder | Default folder | Choose a file or a folder with **Browse...** (Windows' own picker opens on the desktop), or type a path. A folder's files play in name order. The default is a `Couch Mode` folder in your Music folder (wherever Windows keeps it, also for OneDrive), created when you turn the music on |
 | Music volume | 40% | |
 
 Home music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.

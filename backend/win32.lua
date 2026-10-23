@@ -211,6 +211,45 @@ ffi.cdef [[
         int32_t  (*GetMute)(COUCH_ISimpleAudioVolume*, int32_t* pbMute);
     } COUCH_ISimpleAudioVolumeVtbl;
     struct COUCH_ISimpleAudioVolume { COUCH_ISimpleAudioVolumeVtbl* lpVtbl; };
+
+    // Windows' file and folder picker, for the music setting (see dialog.lua)
+    typedef struct COUCH_IFileOpenDialog COUCH_IFileOpenDialog;
+    typedef struct COUCH_IShellItem COUCH_IShellItem;
+    typedef struct { const uint16_t* pszName; const uint16_t* pszSpec; } COUCH_FILTERSPEC;
+    typedef struct {
+        void*    QueryInterface;
+        void*    AddRef;
+        uint32_t (*Release)(COUCH_IFileOpenDialog*);
+        int32_t  (*Show)(COUCH_IFileOpenDialog*, void* hwndOwner);
+        int32_t  (*SetFileTypes)(COUCH_IFileOpenDialog*, uint32_t cFileTypes, const COUCH_FILTERSPEC* rgFilterSpec);
+        void*    SetFileTypeIndex;
+        void*    GetFileTypeIndex;
+        void*    Advise;
+        void*    Unadvise;
+        int32_t  (*SetOptions)(COUCH_IFileOpenDialog*, uint32_t fos);
+        int32_t  (*GetOptions)(COUCH_IFileOpenDialog*, uint32_t* pfos);
+        void*    SetDefaultFolder;
+        int32_t  (*SetFolder)(COUCH_IFileOpenDialog*, COUCH_IShellItem* psi);
+        void*    GetFolder;
+        void*    GetCurrentSelection;
+        void*    SetFileName;
+        void*    GetFileName;
+        int32_t  (*SetTitle)(COUCH_IFileOpenDialog*, const uint16_t* pszTitle);
+        void*    SetOkButtonLabel;
+        void*    SetFileNameLabel;
+        int32_t  (*GetResult)(COUCH_IFileOpenDialog*, COUCH_IShellItem** ppsi);
+    } COUCH_IFileOpenDialogVtbl;
+    struct COUCH_IFileOpenDialog { COUCH_IFileOpenDialogVtbl* lpVtbl; };
+    typedef struct {
+        void*    QueryInterface;
+        void*    AddRef;
+        uint32_t (*Release)(COUCH_IShellItem*);
+        void*    BindToHandler;
+        void*    GetParent;
+        int32_t  (*GetDisplayName)(COUCH_IShellItem*, uint32_t sigdnName, uint16_t** ppszName);
+    } COUCH_IShellItemVtbl;
+    struct COUCH_IShellItem { COUCH_IShellItemVtbl* lpVtbl; };
+    int32_t  SHCreateItemFromParsingName(const uint16_t* pszPath, void* pbc, const COUCH_GUID* riid, void** ppv);
 ]]
 
 local ok, err = pcall(function()
