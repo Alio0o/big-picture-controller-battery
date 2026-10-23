@@ -37,6 +37,7 @@ let level = 0;
 let lastReason = '';
 let warnedPath = false;
 let lastPage = '';
+let lastOverlayPages = '';
 let steamFront = true;
 let frontAsking = false;
 let warnedPlay = false;
@@ -130,6 +131,22 @@ function currentPath(): string | null {
 	return null;
 }
 
+// Page paths of the in-game overlay's windows. Steam lists them next to Big
+// Picture's own window; each has its own history.
+function overlayPaths(): string[] {
+	const store = (window as any).SteamUIStore?.WindowStore;
+	const windows: any[] = [...(store?.OverlayWindows || []), ...(store?.SteamUIWindows || [])];
+	const paths: string[] = [];
+	for (const instance of windows) {
+		if (!instance || instance === store?.GamepadUIMainWindowInstance) continue;
+		const path = instance.m_history?.location?.pathname;
+		if (typeof path === 'string') paths.push(path.replace(/^\/routes(?=\/)/, ''));
+	}
+	const joined = paths.join(' ');
+	if (joined !== lastOverlayPages) { lastOverlayPages = joined; console.log('Couch Mode music: overlay pages', joined || '(none)'); }
+	return paths;
+}
+
 // The store has its own trailers and music. Its pages open in Steam's web
 // browser view, which Couch Mode cannot look into, so they go by the path.
 function storePage(path: string | null): boolean {
@@ -179,6 +196,7 @@ function reason(): string {
 		if (!s.music_in_overlay) return 'the game overlay is open (music in the overlay is off)';
 		// Only over a muted game, so the two do not play at once.
 		if (!s.game_mute) return 'the game overlay is open (game mute is off)';
+		if (overlayPaths().some(storePage)) return 'on the store in the overlay';
 	} else {
 		if (gameRunning()) return 'a game is running';
 		if (!bigPictureOpen()) return 'Big Picture is not open';
