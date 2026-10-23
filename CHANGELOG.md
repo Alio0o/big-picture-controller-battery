@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Music pause:** a music note next to the battery badge in Big Picture's top bar (and in the game overlay) pauses and resumes the music; a slash shows it is paused. It stays paused after a restart and is also on the settings page. Shown only while music is on. It works with the mouse, touch and keyboard; the controller's D-pad does not reach it.
+- **Music pause:** a music note in Big Picture's top bar (and in the game overlay), left of the battery badge, pauses and resumes the music; a slash shows it is paused. It is part of the top bar's controller row, so the D-pad reaches it after the network icon and A presses it; it works with the mouse too. It stays paused after a restart and is also on the settings page. Shown only while music is on.
 
 ## 3.0.0 (2026-10-23)
 
