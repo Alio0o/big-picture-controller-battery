@@ -106,6 +106,17 @@ function setXboxModeAccess(state)
 end
 
 ---@ffi
+--- Whether a Steam window (Big Picture, its menus or popups) is the window
+--- in front: "yes", "no" or "unknown".
+---@return string
+function steamInFront()
+    if not win32.available then return "unknown" end
+    local ok, result = pcall(shortcut.steam_in_front)
+    if not ok then return "unknown" end
+    return result and "yes" or "no"
+end
+
+---@ffi
 --- Mutes the game with this process id (and the processes it started) while
 --- the Steam overlay is open. Returns a short summary for the log.
 ---@param pid number

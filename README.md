@@ -5,9 +5,9 @@ A [Millennium](https://steambrew.app) plugin for Steam on Windows that makes Big
 - **Controller battery:** shows your Bluetooth controller's battery level next to the clock in Steam Big Picture and in the in-game overlay.
 - **Hold for overlay:** hold the Menu button in a game to open the Steam overlay.
 - **Game mute:** the game goes quiet while the Steam overlay is open, and its sound comes back when the overlay closes.
-- **Home music:** your own music plays on the Big Picture Home and Library pages. It fades out on the store and other pages, while a trailer or video plays, while a game runs, and when Big Picture is not in front.
+- **Music:** your own music plays everywhere in Big Picture, menus included. It fades out on the store, while a trailer or video plays, while a game runs, and when another program is in front. It can also play in the game overlay while the game is muted.
 
-Each one can be turned on or off in the plugin settings. Home music is off until you turn it on.
+Each one can be turned on or off in the plugin settings. Music is off until you turn it on.
 
 Couch Mode was called Big Picture Controller Battery before version 3.0.
 
@@ -59,11 +59,12 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 | Overlay keys | Shift+Tab | Must match Steam > Settings > In Game > Overlay shortcut keys |
 | Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
 | Mute the game while the overlay is open | On | |
-| Music on Home and Library | Off | |
+| Music in Big Picture | Off | |
+| Music in the game overlay | Off | Plays the music while the overlay is open over a game. Needs game mute on |
 | Music file or folder | Default folder | Choose a file or a folder with **Browse...** (Windows' own picker opens on the desktop), or type a path. A folder's files play in name order. The default is a `Couch Mode` folder in your Music folder (wherever Windows keeps it, also for OneDrive), created when you turn the music on |
 | Music volume | 40% | |
 
-Home music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.
+Music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.
 
 Changes apply right away.
 
@@ -76,7 +77,7 @@ Everything runs inside the plugin itself, through Millennium's Lua backend. Ther
 - **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
 - **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
-- **Home music:** reads only the music file or folder you set, and plays it inside Steam.
+- **Music:** reads only the music file or folder you set, and plays it inside Steam.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 
@@ -87,7 +88,7 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - The game also receives the Menu press, so its pause menu may open behind the overlay.
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
 - Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
-- Home music decides the page from Big Picture's own navigation. If Steam changes that, the music only pauses for videos, games and focus.
+- Music tells the store apart by Big Picture's own navigation. If Steam changes that, the music pauses on the store only for its videos.
 - Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.5.0, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source

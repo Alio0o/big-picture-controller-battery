@@ -60,6 +60,7 @@ local function steam_in_front()
     local exe = foreground_exe()
     return exe == "steam.exe" or exe == "steamwebhelper.exe"
 end
+M.steam_in_front = steam_in_front
 
 local function key_event(input, vk, up)
     input.type = INPUT_KEYBOARD

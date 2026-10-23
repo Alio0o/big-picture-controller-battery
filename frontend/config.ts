@@ -13,6 +13,7 @@ export type Settings = {
 	music: boolean;
 	music_path: string;
 	music_volume: number;
+	music_in_overlay: boolean;
 	windows: boolean;
 	unavailable_reason?: string;
 };

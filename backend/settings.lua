@@ -16,6 +16,7 @@ M.defaults = {
     music = false,
     music_path = "",
     music_volume = 40,
+    music_in_overlay = false,
 }
 
 local VIRTUAL_KEYS = { SHIFT = 0xA0, CTRL = 0xA2, CONTROL = 0xA2, ALT = 0xA4, TAB = 0x09 }
@@ -46,11 +47,12 @@ local checks = {
     battery_badge = function(v) return type(v) == "boolean" end,
     game_mute = function(v) return type(v) == "boolean" end,
     music = function(v) return type(v) == "boolean" end,
+    music_in_overlay = function(v) return type(v) == "boolean" end,
     music_path = function(v) return type(v) == "string" and #v <= 1024 end,
     music_volume = function(v) return type(v) == "number" and v >= 0 and v <= 100 and v % 1 == 0 end,
 }
 
-M.booleans = { battery_badge = true, overlay_shortcut = true, game_mute = true, music = true }
+M.booleans = { battery_badge = true, overlay_shortcut = true, game_mute = true, music = true, music_in_overlay = true }
 M.numbers = { hold_ms = true, music_volume = true }
 
 local current = nil

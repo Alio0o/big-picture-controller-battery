@@ -1,9 +1,10 @@
-// Background music on the Big Picture Home and Library pages.
+// Background music in Big Picture.
 //
 // The music is the user's own file or folder (see backend/music.lua). It
-// fades out on any other page (the store has trailers), while a video plays,
-// while a game runs, and while Big Picture is not in front, and fades back in
-// where it stopped.
+// plays everywhere in Big Picture, including its menus, and fades out on the
+// store (it has trailers and music of its own), while a video plays, while a
+// game runs, and while another program is in front. It fades back in where it
+// stopped. Optionally it also plays in the overlay over a muted game.
 import { onSettings, settings } from './config';
 import { fromBackend } from './json';
 import { overlayOpen } from './mute';
@@ -35,6 +36,9 @@ let objectUrl = '';
 let level = 0;
 let lastReason = '';
 let warnedPath = false;
+let lastPage = '';
+let steamFront = true;
+let frontAsking = false;
 let warnedPlay = false;
 
 export async function listMusic(): Promise<MusicList> {
@@ -108,16 +112,22 @@ function nextTrack() {
 function currentPath(): string | null {
 	const instance = (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance;
 	const path = instance?.m_history?.location?.pathname;
-	if (typeof path === 'string') return path.replace(/^\/routes(?=\/)/, '');
+	if (typeof path === 'string') {
+		const clean = path.replace(/^\/routes(?=\/)/, '');
+		if (clean !== lastPage) { lastPage = clean; console.log('Couch Mode music: page', clean); }
+		return clean;
+	}
 	if (!warnedPath) {
 		warnedPath = true;
-		console.warn('Couch Mode music: Big Picture page unknown, so it only pauses for videos, games and focus.');
+		console.warn('Couch Mode music: Big Picture page unknown, so the store is noticed only by its videos.');
 	}
 	return null;
 }
 
-function pageAllowsMusic(path: string | null): boolean {
-	return path === null || path === '/' || /^\/(library|home)(\/|$)/.test(path);
+// The store has its own trailers and music. Its pages open in Steam's web
+// browser view, which Couch Mode cannot look into, so they go by the path.
+function storePage(path: string | null): boolean {
+	return path !== null && /(^|\/)(store|steamweb|externalweb|browser)(\/|$)/i.test(path);
 }
 
 function mediaPlaying(): boolean {
@@ -129,12 +139,23 @@ function mediaPlaying(): boolean {
 	return false;
 }
 
-function bigPicture(): Document | null {
+function bigPictureOpen(): boolean {
 	for (const doc of windows) {
 		if (!doc.defaultView || doc.defaultView.closed) { windows.delete(doc); continue; }
-		if (doc.visibilityState === 'visible' && kindOf.get(doc) === 'main') return doc;
+		if (kindOf.get(doc) === 'main') return true;
 	}
-	return null;
+	return false;
+}
+
+// Asks Windows (through the backend) whether a Steam window is in front.
+// Big Picture's menus and popups are Steam windows too, so they count.
+function pollFront() {
+	if (!alive || frontAsking) return;
+	frontAsking = true;
+	backend.steamInFront()
+		.then(answer => { steamFront = answer !== 'no'; })
+		.catch(() => { steamFront = true; })
+		.finally(() => { frontAsking = false; });
 }
 
 // Why the music should not play right now, or '' to play.
@@ -147,12 +168,18 @@ function reason(): string {
 		if (Date.now() - listedAt > RELIST_MS) refreshList();
 		return list.error || 'no music';
 	}
-	if (gameRunning() || overlayOpen()) return 'a game is running';
-	const doc = bigPicture();
-	if (!doc) return 'Big Picture is not open';
-	if (!doc.hasFocus()) return 'Big Picture is not in front';
-	const path = currentPath();
-	if (!pageAllowsMusic(path)) return `on ${path}`;
+	if (overlayOpen()) {
+		// Over a game the overlay is in front, not Steam, so focus is not checked.
+		if (!s.music_in_overlay) return 'the game overlay is open (music in the overlay is off)';
+		// Only over a muted game, so the two do not play at once.
+		if (!s.game_mute) return 'the game overlay is open (game mute is off)';
+	} else {
+		if (gameRunning()) return 'a game is running';
+		if (!bigPictureOpen()) return 'Big Picture is not open';
+		pollFront();
+		if (!steamFront) return 'Steam is not in front';
+		if (storePage(currentPath())) return 'on the store';
+	}
 	if (mediaPlaying()) return 'a video is playing';
 	return '';
 }

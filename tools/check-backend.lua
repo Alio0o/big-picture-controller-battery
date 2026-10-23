@@ -77,6 +77,7 @@ fresh()
 check("new defaults", settings.get().game_mute == true and settings.get().music == false
     and settings.get().music_volume == 40 and settings.get().battery_badge == true)
 check("set music volume", setSetting("music_volume", "55") == "ok" and setSetting("music_volume", "101") ~= "ok")
+check("music in overlay off by default", settings.get().music_in_overlay == false and setSetting("music_in_overlay", "true") == "ok")
 check("set game mute off", setSetting("game_mute", "false") == "ok" and settings.get().game_mute == false)
 fresh()
 
@@ -158,6 +159,9 @@ print("battery: " .. getBattery())
 -- One poll reads the controller; a single poll can never complete a hold.
 setSetting("hold_ms", "5000")
 print("shortcut poll: " .. pollShortcut())
+local front = steamInFront()
+print("steam in front: " .. front)
+check("steam in front answers", front == "yes" or front == "no")
 
 -- Audio sessions. Lists them; changes nothing unless a test process is given.
 local audio = require("audio")

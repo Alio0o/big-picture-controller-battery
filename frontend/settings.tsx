@@ -154,12 +154,19 @@ export function SettingsPage() {
 				onChange={checked => save('game_mute', checked)}
 			/>
 
-			<DialogControlsSectionHeader>Home music</DialogControlsSectionHeader>
+			<DialogControlsSectionHeader>Music</DialogControlsSectionHeader>
 			<ToggleField
-				label="Music on Home and Library"
-				description="Plays your own music in Big Picture. It fades out on the store and other pages, while a video plays, while a game runs, and when Big Picture is not in front."
+				label="Music in Big Picture"
+				description="Plays your own music everywhere in Big Picture. It fades out on the store, while a video or trailer plays, while a game runs, and when another program is in front."
 				checked={settings.music}
 				onChange={checked => save('music', checked)}
+			/>
+			<ToggleField
+				label="Music in the game overlay"
+				description="Also plays while the overlay is open over a game, with the game muted. Needs Game mute on."
+				checked={settings.music_in_overlay}
+				disabled={!settings.music}
+				onChange={checked => save('music_in_overlay', checked)}
 			/>
 			<Field
 				label={settings.music_path ? 'Music from' : 'Music from (default folder)'}
