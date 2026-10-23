@@ -185,6 +185,7 @@ function pollFront() {
 function reason(): string {
 	const s = settings();
 	if (!s?.music) return 'off';
+	if (s.music_paused) return 'paused';
 	if (!list) { refreshList(); return 'loading the list'; }
 	if (list.tracks.length === 0) {
 		// Look again now and then, so music added to the folder starts playing.

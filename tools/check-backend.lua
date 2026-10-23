@@ -78,6 +78,10 @@ check("new defaults", settings.get().game_mute == true and settings.get().music 
     and settings.get().music_volume == 30 and settings.get().battery_badge == true)
 check("set music volume", setSetting("music_volume", "55") == "ok" and setSetting("music_volume", "101") ~= "ok")
 check("music in overlay off by default", settings.get().music_in_overlay == false and setSetting("music_in_overlay", "true") == "ok")
+check("music not paused by default", settings.get().music_paused == false)
+check("pause music", setSetting("music_paused", "true") == "ok" and settings.get().music_paused == true
+    and getSettings():match('"music_paused":true') ~= nil)
+check("resume music", setSetting("music_paused", "false") == "ok" and settings.get().music_paused == false)
 check("set game mute off", setSetting("game_mute", "false") == "ok" and settings.get().game_mute == false)
 fresh()
 

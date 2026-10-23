@@ -8,7 +8,7 @@
 // the cards, all in one style.
 import { DialogButton, Dropdown, Field, SliderField, TextField, Toggle } from 'millennium';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { loadSettings, saveSetting, Settings } from './config';
+import { loadSettings, onSettings, saveSetting, Settings } from './config';
 import { listMusic, MusicList } from './music';
 
 const HOLD_MIN = 200, HOLD_MAX = 2000, HOLD_STEP = 50;
@@ -94,6 +94,9 @@ export function SettingsPage() {
 		checkMusic();
 		return () => Object.values(pending.current).forEach(id => window.clearTimeout(id));
 	}, []);
+
+	// The music icon in Big Picture's top bar can pause the music while this page is open.
+	useEffect(() => onSettings(s => setSettings(cur => (cur && cur.music_paused !== s.music_paused ? { ...cur, music_paused: s.music_paused } : cur))), []);
 
 	// Saves after a short pause, so a slider drag writes once.
 	const save = <K extends keyof Settings>(key: K, value: Settings[K], delay = 0, then?: () => void) => {
@@ -210,6 +213,9 @@ export function SettingsPage() {
 			<Section title="Music" />
 			<Row label="Music in Big Picture" description="Plays your music everywhere in Big Picture. It fades out on the store, while a video or trailer plays, while a game runs, and when another program is in front.">
 				<Toggle value={settings.music} onChange={checked => save('music', checked)} />
+			</Row>
+			<Row label="Music paused" description="Also paused and resumed with the music icon next to the clock in Big Picture. Stays paused after a restart." disabled={!settings.music}>
+				<Toggle value={settings.music_paused} disabled={!settings.music} onChange={checked => save('music_paused', checked)} />
 			</Row>
 			<Row label="Music in the game overlay" description="Also plays while the overlay is open over a game, with the game muted. Needs game mute." disabled={!settings.music}>
 				<Toggle value={settings.music_in_overlay} disabled={!settings.music} onChange={checked => save('music_in_overlay', checked)} />

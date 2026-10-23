@@ -1,10 +1,12 @@
-// Battery badge next to the clock in Big Picture and in the in-game overlay.
+// Battery badge next to the clock in Big Picture and in the in-game overlay,
+// and the music pause icon next to it.
 import { findModule } from 'millennium';
 import { fromBackend } from './json';
 import { contextKind, subscribePopups } from './windows';
-import { onSettings, settings } from './config';
+import { onSettings, saveSetting, settings } from './config';
 
 const BADGE_ID = 'couch-mode-badge';
+const MUSIC_ID = 'couch-mode-music';
 const POLL_MS = 10000;
 
 type Battery = { status: string; percent?: number; name?: string; message?: string };
@@ -22,6 +24,7 @@ let timer: number | null = null;
 let headerClasses: any = null;
 let unsubscribe: (() => void) | null = null;
 let unsubscribeSettings: (() => void) | null = null;
+let saving = false;
 const docs = new Map<Document, Entry>();
 
 function classes() {
@@ -83,15 +86,112 @@ function makeBadge(doc: Document) {
 	return badge;
 }
 
+// Pauses or resumes the music everywhere; the setting survives restarts.
+async function toggleMusic() {
+	if (saving) return;
+	saving = true;
+	try {
+		const result = await saveSetting('music_paused', !settings()?.music_paused);
+		if (result !== 'ok') console.warn('Couch Mode: music pause not saved:', result);
+	} catch (error) {
+		console.warn('Couch Mode: music pause not saved', error);
+	} finally {
+		saving = false;
+	}
+}
+
+// Music note, with a slash while paused. A header item like the badge, but
+// clickable, with a highlight on hover and keyboard focus. Steam's controller
+// navigation does not reach it: it is not part of Steam's focus tree.
+function makeMusicButton(doc: Document) {
+	const button = doc.createElement('div');
+	button.id = MUSIC_ID;
+	button.className = classes()?.HeaderItem || 'HeaderItem';
+	button.setAttribute('role', 'button');
+	button.tabIndex = 0;
+	Object.assign(button.style, {
+		display: 'none', alignItems: 'center', justifyContent: 'center', padding: '0 8px',
+		alignSelf: 'stretch', color: 'inherit', cursor: 'pointer', userSelect: 'none',
+		flex: '0 0 auto', boxSizing: 'border-box', borderRadius: '4px', outline: 'none',
+		transition: 'background-color 0.15s',
+	});
+	const ns = 'http://www.w3.org/2000/svg';
+	const svg = doc.createElementNS(ns, 'svg');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('width', '20');
+	svg.setAttribute('height', '20');
+	svg.setAttribute('aria-hidden', 'true');
+	svg.setAttribute('fill', 'none');
+	svg.setAttribute('stroke', 'currentColor');
+	svg.setAttribute('stroke-linecap', 'round');
+	svg.setAttribute('stroke-linejoin', 'round');
+	svg.style.flex = '0 0 auto';
+	const note = doc.createElementNS(ns, 'path');
+	note.setAttribute('d', 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0a3 3 0 0 1 6 0Z');
+	note.setAttribute('stroke-width', '1.5');
+	const slash = doc.createElementNS(ns, 'path');
+	slash.setAttribute('d', 'M3 3l18 18');
+	slash.setAttribute('stroke-width', '2');
+	slash.dataset.musicSlash = 'true';
+	svg.append(note, slash);
+	button.append(svg);
+	const highlight = (on: boolean) => { button.style.backgroundColor = on ? 'rgba(255, 255, 255, 0.15)' : ''; };
+	button.addEventListener('mouseenter', () => highlight(true));
+	button.addEventListener('mouseleave', () => highlight(doc.activeElement === button));
+	button.addEventListener('focus', () => highlight(true));
+	button.addEventListener('blur', () => highlight(false));
+	button.addEventListener('click', event => { event.stopPropagation(); void toggleMusic(); });
+	button.addEventListener('keydown', event => {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		event.stopPropagation();
+		void toggleMusic();
+	});
+	return button;
+}
+
+function renderMusic(button: HTMLElement) {
+	const s = settings();
+	if (!s?.music) { button.style.display = 'none'; return; }
+	const paused = !!s.music_paused;
+	const title = paused ? 'Music paused. Resume music' : 'Pause music';
+	if (button.title !== title) { button.title = title; button.setAttribute('aria-label', title); }
+	button.setAttribute('aria-pressed', String(paused));
+	const slash = button.querySelector('[data-music-slash]') as SVGElement | null;
+	if (slash) slash.style.display = paused ? '' : 'none';
+	button.style.display = 'inline-flex';
+}
+
+// Stay in the normal header layout; hide rather than overlap if the row is full.
+function overflows(doc: Document, el: HTMLElement, parent: HTMLElement) {
+	if (el.style.display === 'none') return false;
+	const r = el.getBoundingClientRect(), width = doc.defaultView!.innerWidth;
+	return r.left < 0 || r.right > width || (parent.clientWidth > 0 && parent.scrollWidth > parent.clientWidth + 1);
+}
+
 function render(doc: Document) {
 	if (!docs.has(doc) || !alive) return;
 	if (!doc.defaultView || doc.defaultView.closed) { detach(doc); return; }
 	const clock = findClock(doc);
 	let badge = doc.getElementById(BADGE_ID);
-	if (!clock?.parentElement) { if (badge) badge.style.display = 'none'; return; }
+	let music = doc.getElementById(MUSIC_ID);
+	if (!clock?.parentElement) {
+		if (badge) badge.style.display = 'none';
+		if (music) music.style.display = 'none';
+		return;
+	}
 	if (!badge) badge = makeBadge(doc);
-	if (badge.parentElement !== clock.parentElement || badge.nextElementSibling !== clock)
-		clock.parentElement.insertBefore(badge, clock);
+	if (!music) music = makeMusicButton(doc);
+	const parent = clock.parentElement;
+	if (badge.parentElement !== parent || badge.nextElementSibling !== clock) parent.insertBefore(badge, clock);
+	if (music.parentElement !== parent || music.nextElementSibling !== badge) parent.insertBefore(music, badge);
+	renderMusic(music);
+	renderBadge(badge);
+	if (overflows(doc, music, parent)) music.style.display = 'none';
+	if (overflows(doc, badge, parent)) badge.style.display = 'none';
+}
+
+function renderBadge(badge: HTMLElement) {
 	if (settings()?.battery_badge === false || battery.status !== 'connected' || typeof battery.percent !== 'number') {
 		badge.style.display = 'none';
 		return;
@@ -102,11 +202,6 @@ function render(doc: Document) {
 	const title = `${battery.name || 'Controller'}: ${text}`;
 	if (badge.title !== title) { badge.title = title; badge.setAttribute('aria-label', title); }
 	badge.style.display = 'inline-flex';
-	// Stay in the normal header layout; hide rather than overlap if the row is full.
-	const parent = clock.parentElement, r = badge.getBoundingClientRect();
-	const width = doc.defaultView.innerWidth;
-	if (r.left < 0 || r.right > width || (parent.clientWidth > 0 && parent.scrollWidth > parent.clientWidth + 1))
-		badge.style.display = 'none';
 }
 
 function schedule(doc: Document) {
@@ -114,7 +209,7 @@ function schedule(doc: Document) {
 	if (!entry || entry.frame !== null || !alive || !doc.defaultView) return;
 	entry.frame = doc.defaultView.requestAnimationFrame(() => {
 		entry.frame = null;
-		try { render(doc); } catch (error) { console.warn('Battery badge render failed', error); }
+		try { render(doc); } catch (error) { console.warn('Battery badge or music icon render failed', error); }
 	});
 }
 
@@ -128,6 +223,7 @@ function detach(doc: Document) {
 	doc.defaultView?.removeEventListener('resize', entry.changed);
 	doc.defaultView?.removeEventListener('beforeunload', entry.unload);
 	doc.getElementById(BADGE_ID)?.remove();
+	doc.getElementById(MUSIC_ID)?.remove();
 	docs.delete(doc);
 }
 
@@ -140,8 +236,8 @@ function attach(context: any) {
 	entry.begin = () => {
 		if (!alive || !docs.has(doc) || entry.observer) return;
 		entry.observer = new view.MutationObserver(records => {
-			// Ignore our own label updates; Steam mounts its header asynchronously.
-			if (records.some(r => !(r.target as Element).closest?.(`#${BADGE_ID}`))) schedule(doc);
+			// Ignore our own updates; Steam mounts its header asynchronously.
+			if (records.some(r => !(r.target as Element).closest?.(`#${BADGE_ID}, #${MUSIC_ID}`))) schedule(doc);
 		});
 		entry.observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 		schedule(doc);

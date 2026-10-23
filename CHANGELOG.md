@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Music pause:** a music note next to the battery badge in Big Picture's top bar (and in the game overlay) pauses and resumes the music; a slash shows it is paused. It stays paused after a restart and is also on the settings page. Shown only while music is on. It works with the mouse, touch and keyboard; the controller's D-pad does not reach it.
+
 ## 3.0.0 (2026-10-23)
 
 Big Picture Controller Battery is now **Couch Mode**: extras that make Steam Big Picture feel more like a console.
