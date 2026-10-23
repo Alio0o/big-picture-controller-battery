@@ -102,8 +102,9 @@ end
 function M.migrate(paths)
     local ok, done = pcall(millennium.config.get, MIGRATED)
     if ok and done == true then return 0 end
-    local okjson, cjson = pcall(require, "cjson")
-    if not okjson then return nil, "cjson unavailable" end
+    -- Millennium 3.6 has no cjson for plugins; the small decoder covers that.
+    local okjson, json = pcall(require, "cjson")
+    if not okjson or type(json) ~= "table" or type(json.decode) ~= "function" then json = require("couch_json") end
 
     local old
     for _, path in ipairs(paths or old_config_paths()) do
@@ -111,7 +112,7 @@ function M.migrate(paths)
         if file then
             local text = file:read("*a")
             file:close()
-            local okdecode, data = pcall(cjson.decode, text)
+            local okdecode, data = pcall(json.decode, text)
             if okdecode and type(data) == "table" and type(data.plugins) == "table" then
                 local entry = data.plugins[OLD_ID]
                 old = type(entry) == "table" and type(entry.config) == "table" and entry.config or {}

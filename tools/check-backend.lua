@@ -41,14 +41,23 @@ check("set off", setSetting("overlay_shortcut", "false") == "ok" and pollShortcu
 check("set on", setSetting("overlay_shortcut", "true") == "ok")
 check("settings json", getSettings():match('"hold_ms":300') ~= nil)
 
--- Settings from the old plugin id. Plain LuaJIT has no cjson, so a stand-in
--- turns this simple JSON into a Lua table.
-package.loaded.cjson = package.loaded.cjson or {
-    decode = function(text)
-        local lua = text:gsub('"([%w_%-]+)"%s*:', '["%1"]=')
-        return assert(loadstring("return " .. lua))()
-    end,
-}
+-- Settings from the old plugin id. Plain LuaJIT has no cjson, so this also
+-- checks the small decoder used when Millennium has none.
+local couch_json = require("couch_json")
+local decoded = couch_json.decode([[ {"a":[1,2.5,-3e2,true,false,null],"b":{"c":"x\"A\n"},"d":{}} ]])
+check("json decoder", decoded.a[2] == 2.5 and decoded.a[3] == -300 and decoded.a[4] == true and decoded.a[5] == false
+    and decoded.b.c == 'x"A\n' and next(decoded.d) == nil)
+check("json decoder unicode escape", couch_json.decode('"\\' .. 'u0041\\' .. 'u00e9"') == "A?")
+check("json decoder rejects bad input", not pcall(couch_json.decode, '{"a":1,}') and not pcall(couch_json.decode, '{"a":1} x'))
+local real = os.getenv("COUCH_CONFIG_JSON")
+if real then
+    local rf = assert(io.open(real, "rb"))
+    local data = couch_json.decode(rf:read("*a"))
+    rf:close()
+    local old = data.plugins and data.plugins["big-picture-controller-battery"]
+    print("real config.json old settings: hold_ms=" .. tostring(old and old.config and old.config.hold_ms))
+    check("json decoder reads the real config.json", type(data.plugins) == "table")
+end
 local function fresh() config = {}; settings.reload() end
 local tmp = os.tmpname()
 local f = assert(io.open(tmp, "wb"))
