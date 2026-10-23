@@ -71,6 +71,25 @@ check("set music volume", setSetting("music_volume", "55") == "ok" and setSettin
 check("set game mute off", setSetting("game_mute", "false") == "ok" and settings.get().game_mute == false)
 fresh()
 
+-- Music files
+local music = require("music")
+check("base64", music.base64("") == "" and music.base64("f") == "Zg==" and music.base64("fo") == "Zm8="
+    and music.base64("foo") == "Zm9v" and music.base64("\255\0\128hello") == "/wCAaGVsbG8=")
+local song = os.tmpname() .. ".mp3"
+f = assert(io.open(song, "wb"))
+f:write(string.rep("\1\2\3", 300000)) -- 900 000 bytes, two pieces
+f:close()
+setSetting("music_path", song)
+local listed = getMusic()
+check("music lists a file", listed:match('"type":"audio/mpeg"') ~= nil and listed:match('"size":900000') ~= nil)
+local first, second = readMusic(song, 0), readMusic(song, music.CHUNK)
+check("music read in pieces", #first == math.ceil(music.CHUNK / 3) * 4 and #second > 0 and readMusic(song, 900000) == "")
+check("music refuses other files", readMusic(tmp, 0) == "")
+setSetting("music_path", song .. ".txt")
+check("music reports nothing playable", getMusic():match('"error":"Nothing') ~= nil or getMusic():match('"error":"No playable') ~= nil)
+os.remove(song)
+fresh()
+
 -- Hold logic (no Windows calls)
 local h = shortcut.hold_step
 h(0, false, false, 300)

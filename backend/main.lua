@@ -6,8 +6,10 @@ local settings   = require("settings")
 local shortcut   = require("shortcut")
 local access     = require("access")
 local audio      = require("audio")
+local music      = require("music")
 
--- Small JSON encoder for the flat tables sent to the frontend.
+-- Small JSON encoder for the tables sent to the frontend. A table with keys
+-- 1..n is a list; an empty table is an object.
 local function quote(text)
     return '"' .. text:gsub('[%c"\\]', function(c)
         return string.format("\\u%04x", c:byte())
@@ -17,7 +19,12 @@ end
 local function encode(value)
     local kind = type(value)
     if kind == "table" then
-        local parts = {}
+        local parts, count = {}, 0
+        for _ in pairs(value) do count = count + 1 end
+        if count > 0 and count == #value then
+            for i = 1, #value do parts[i] = encode(value[i]) end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
         for k, v in pairs(value) do parts[#parts + 1] = quote(tostring(k)) .. ":" .. encode(v) end
         return "{" .. table.concat(parts, ",") .. "}"
     elseif kind == "string" then
@@ -120,6 +127,32 @@ function unmuteGame()
     if not ok then
         logger:error("Unmuting the game failed: " .. tostring(result))
         return 0
+    end
+    return result
+end
+
+---@ffi
+--- The music files to play on Home and Library, from the music setting.
+---@return string
+function getMusic()
+    local ok, result = pcall(music.list)
+    if not ok then
+        logger:error("Listing music failed: " .. tostring(result))
+        return encode({ folder = "", tracks = {}, error = tostring(result) })
+    end
+    return encode(result)
+end
+
+---@ffi
+--- Part of a music file from getMusic, as base64. Empty at the end.
+---@param path string
+---@param offset number
+---@return string
+function readMusic(path, offset)
+    local ok, result = pcall(music.chunk, path, offset)
+    if not ok then
+        logger:error("Reading music failed: " .. tostring(result))
+        return ""
     end
     return result
 end
