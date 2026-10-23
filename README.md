@@ -89,7 +89,7 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
 - Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
 - Music tells the store apart by the page Big Picture and the overlay show. If Steam changes that, the music pauses on the store only for its videos.
-- Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.6.2, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
+- Only tested on one PC so far (Windows 11, stable Steam, Millennium 3.6.2, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source
 
