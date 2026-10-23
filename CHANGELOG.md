@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 3.1.0 (2026-10-23)
 
-- **Music pause:** a music note in Big Picture's top bar (and in the game overlay), left of the battery badge, pauses and resumes the music; a slash shows it is paused. It is part of the top bar's controller row, so the D-pad reaches it after the network icon and A presses it; it works with the mouse too. It stays paused after a restart and is also on the settings page. Shown only while music is on.
+- **Music button:** a music note in Big Picture's top bar and in the game overlay, left of the battery badge, pauses and resumes the music everywhere; a slash shows it is paused. It sits in the top bar's controller row, so the D-pad reaches it after the network icon (with Steam's white focus box) and A presses it; the mouse works too. Shown only while music is on.
+- The pause stays after a restart, separate from turning music on or off, and has its own switch on the settings page (**Music paused**).
+- If a Steam update changes the top bar so Couch Mode cannot find its controller row, the music button still works with the mouse.
 
 ## 3.0.0 (2026-10-23)
 

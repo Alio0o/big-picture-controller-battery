@@ -5,7 +5,7 @@ A [Millennium](https://steambrew.app) plugin for Steam on Windows that makes Big
 - **Controller battery:** shows your Bluetooth controller's battery level next to the clock in Steam Big Picture and in the in-game overlay.
 - **Hold for overlay:** hold the Menu button in a game to open the Steam overlay.
 - **Game mute:** the game goes quiet while the Steam overlay is open, and its sound comes back when the overlay closes.
-- **Music:** your own music plays everywhere in Big Picture, menus included. It fades out on the store, while a trailer or video plays, while a game runs, and when another program is in front. It can also play in the game overlay while the game is muted.
+- **Music:** your own music plays everywhere in Big Picture, menus included. It fades out on the store, while a trailer or video plays, while a game runs, and when another program is in front. It can also play in the game overlay while the game is muted. A music button in the top bar, next to the battery, pauses and resumes it; it works with the controller (D-pad and A) and the mouse.
 
 Each one can be turned on or off in the plugin settings. Music is off until you turn it on.
 
@@ -60,6 +60,7 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 | Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
 | Mute the game while the overlay is open | On | |
 | Music in Big Picture | Off | |
+| Music paused | Off | Also switched by the music button in the top bar. Stays paused after a restart |
 | Music in the game overlay | Off | Plays the music while the overlay is open over a game. Needs game mute on |
 | Music file | First file in the folder | **Browse...** opens Windows' own file picker in the music folder. A file picked from somewhere else is copied into the folder |
 | Music volume | 30% | |
@@ -77,7 +78,7 @@ Everything runs inside the plugin itself, through Millennium's Lua backend. Ther
 - **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
 - **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, and for every other program Steam started that is not part of Steam (a game started through a launcher), through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
-- **Music:** creates the `Couch Mode` folder in your Music folder, reads only the music file you chose there, and plays it inside Steam. Browse opens Windows' Open dialog; a file from elsewhere is copied into the folder.
+- **Music:** creates the `Couch Mode` folder in your Music folder, reads only the music file you chose there, and plays it inside Steam. Browse opens Windows' Open dialog; a file from elsewhere is copied into the folder. The music button is added to Steam's top bar and joins its controller row.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 
@@ -89,6 +90,7 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
 - Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
 - Music tells the store apart by the page Big Picture and the overlay show. If Steam changes that, the music pauses on the store only for its videos.
+- The music button joins the top bar's controller row through Steam's internal interface, not a public API. If a Steam update changes it, the button works with the mouse only.
 - Only tested on one PC so far (Windows 11, stable Steam, Millennium 3.6.2, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source

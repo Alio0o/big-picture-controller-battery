@@ -1,7 +1,7 @@
 [plugin]
 id = "couch-mode"
 name = "Couch Mode"
-version = "3.0.0"
+version = "3.1.0"
 author = "Ali"
 description = "Console-style extras for Steam Big Picture: controller battery next to the clock, hold Menu to open the overlay, mute the game while the overlay is open, and background music on Home and Library."
 
