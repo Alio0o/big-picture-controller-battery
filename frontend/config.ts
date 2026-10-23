@@ -11,7 +11,7 @@ export type Settings = {
 	keys: string;
 	game_mute: boolean;
 	music: boolean;
-	music_path: string;
+	music_file: string;
 	music_volume: number;
 	music_in_overlay: boolean;
 	windows: boolean;

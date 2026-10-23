@@ -1,11 +1,11 @@
--- Music files for the Home and Library background music.
+-- Music files for the background music.
 --
--- The music setting is a file or a folder. Empty means the default folder,
--- "Couch Mode" in the user's Music folder, which is created when the music is
--- turned on. Steam's UI cannot open local files itself, so the frontend reads
--- the chosen file from here in pieces. Only files from the current list can
--- be read. Files and folders go through the Windows API, so names in any
--- language work.
+-- The music lives in one folder: "Couch Mode" in the user's Music folder
+-- (wherever Windows keeps it), created when the plugin starts. The music
+-- setting is the name of one file in it; without one, the first file in the
+-- folder plays. Steam's UI cannot open local files itself, so the frontend
+-- reads the file from here in pieces. Only the listed file can be read.
+-- Files go through the Windows API, so names in any language work.
 local win32 = require("win32")
 local settings = require("settings")
 
@@ -19,8 +19,10 @@ local TYPES = {
 }
 
 local tracks = {}
+local folder_override = nil -- for tools/check-backend.lua
 
-function M.default_folder()
+function M.folder()
+    if folder_override then return folder_override end
     local music = win32.available and win32.music_folder()
     if not music then
         local home = os.getenv("USERPROFILE")
@@ -29,84 +31,90 @@ function M.default_folder()
     return music and (music .. "\\Couch Mode") or nil
 end
 
--- Where the Open dialog starts: the folder of the current music, the default
--- folder, or the Music folder, whichever exists first.
-function M.start_folder()
-    local setting = settings.get().music_path:gsub('^%s*"?(.-)"?%s*$', "%1")
-    local candidates = {}
-    if setting ~= "" then
-        candidates[#candidates + 1] = setting
-        candidates[#candidates + 1] = setting:match("^(.*)[\\/][^\\/]*$")
-    end
-    candidates[#candidates + 1] = M.default_folder()
-    candidates[#candidates + 1] = win32.available and win32.music_folder() or nil
-    for _, path in ipairs(candidates) do
-        if path and win32.available and win32.path_kind(path) == "folder" then return path end
-    end
-    return nil
+function M.set_folder(path) folder_override = path end
+
+-- Creates the music folder if it is missing. Returns the folder or nil.
+function M.ensure_folder()
+    local folder = M.folder()
+    if not folder or not win32.available then return nil end
+    if win32.path_kind(folder) ~= "folder" then win32.create_folder(folder) end
+    return win32.path_kind(folder) == "folder" and folder or nil
 end
 
 local function kind(path)
     local ext = path:match("%.([%w]+)$")
     return ext and TYPES[ext:lower()]
 end
+M.kind = kind
 
--- Returns { folder, tracks = { { path, name, size, type } }, error }.
-function M.list()
-    local config = settings.get()
-    local setting = config.music_path:gsub('^%s*"?(.-)"?%s*$', "%1"):gsub("[\\/]+$", "")
-    local path = setting ~= "" and setting or M.default_folder() or ""
-    local result = { folder = path, tracks = {} }
-    tracks = {}
-    if path == "" then
-        result.error = "No music file or folder set"
-        return result
+-- Playable files in the folder, in name order: { { name, size, type } }.
+local function playable(folder)
+    local files, too_big = {}, 0
+    local names = win32.list_files(folder)
+    table.sort(names, function(a, b) return a:lower() < b:lower() end)
+    for _, name in ipairs(names) do
+        local type_ = kind(name)
+        local size = type_ and win32.file_size(folder .. "\\" .. name)
+        if size and size > MAX_SIZE then too_big = too_big + 1 end
+        if size and size > 0 and size <= MAX_SIZE then
+            files[#files + 1] = { name = name, size = size, type = type_ }
+        end
     end
+    return files, too_big
+end
+
+-- Returns { folder, files, chosen, tracks = { { path, name, size, type } }, error }.
+-- tracks holds the one file that plays.
+function M.list()
+    local result = { folder = M.folder() or "", tracks = {}, files = 0, chosen = "" }
+    tracks = {}
     if not win32.available then
         result.error = win32.reason
         return result
     end
-
-    local what = win32.path_kind(path)
-    if not what and setting == "" and config.music then
-        win32.create_folder(path)
-        what = win32.path_kind(path)
-    end
-    if not what then
-        result.error = (setting == "" and "Put music files in " or "Not found: ") .. path
+    local folder = M.ensure_folder()
+    if not folder then
+        result.error = "Could not create " .. result.folder
         return result
     end
-
-    local candidates = {}
-    if what == "folder" then
-        for _, name in ipairs(win32.list_files(path)) do candidates[#candidates + 1] = path .. "\\" .. name end
-        table.sort(candidates, function(a, b) return a:lower() < b:lower() end)
-    else
-        candidates[1] = path
+    local files, too_big = playable(folder)
+    result.files = #files
+    local wanted = settings.get().music_file
+    local pick = files[1]
+    for _, file in ipairs(files) do
+        if wanted ~= "" and file.name:lower() == wanted:lower() then pick = file end
     end
-
-    local too_big = 0
-    for _, file in ipairs(candidates) do
-        local type_ = kind(file)
-        local size = type_ and win32.file_size(file)
-        if size and size > MAX_SIZE then too_big = too_big + 1 end
-        if size and size > 0 and size <= MAX_SIZE then
-            tracks[file] = size
-            result.tracks[#result.tracks + 1] = {
-                path = file, name = file:match("([^\\/]+)$") or file, size = size, type = type_,
-            }
-        end
+    if not pick then
+        result.error = too_big > 0 and "The music is bigger than 64 MB per file" or ("Put music files in " .. folder)
+        return result
     end
-    if #result.tracks == 0 then
-        if #candidates == 0 then
-            result.error = "Put music files in " .. path
-        elseif too_big > 0 then
-            result.error = "The music is bigger than 64 MB per file"
-        else
-            result.error = "No playable music in " .. path .. " (mp3, ogg, opus, m4a, aac, wav, flac or webm)"
-        end
-    end
+    local path = folder .. "\\" .. pick.name
+    tracks[path] = pick.size
+    result.chosen = pick.name
+    result.tracks[1] = { path = path, name = pick.name, size = pick.size, type = pick.type }
     return result
+end
+
+-- Takes a file chosen in the Open dialog. A file from elsewhere is copied
+-- into the folder. Returns its name in the folder, or nil and a message.
+function M.adopt(path)
+    local folder = M.ensure_folder()
+    if not folder then return nil, "The music folder is missing" end
+    local name = path:match("([^\\/]+)$")
+    if not name or not kind(name) then return nil, "Not a music file (mp3, ogg, opus, m4a, aac, wav, flac or webm)" end
+    local parent = path:sub(1, #path - #name - 1)
+    if parent:lower() == folder:lower() then return name end
+    local size = win32.file_size(path)
+    if not size or size > MAX_SIZE then return nil, "The music is bigger than 64 MB" end
+    -- Keep a file of the same name that is already there.
+    local stem, ext = name:match("^(.*)(%.[^.]+)$")
+    local target, n = name, 1
+    while win32.path_kind(folder .. "\\" .. target) do
+        n = n + 1
+        target = stem .. " (" .. n .. ")" .. ext
+    end
+    if not win32.copy_file(path, folder .. "\\" .. target) then return nil, "Could not copy the file into " .. folder end
+    return target
 end
 
 local ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

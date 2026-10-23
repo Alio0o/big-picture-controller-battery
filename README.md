@@ -61,10 +61,10 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 | Mute the game while the overlay is open | On | |
 | Music in Big Picture | Off | |
 | Music in the game overlay | Off | Plays the music while the overlay is open over a game. Needs game mute on |
-| Music file or folder | Default folder | Choose a file or a folder with **Browse...** (Windows' own picker opens on the desktop), or type a path. A folder's files play in name order. The default is a `Couch Mode` folder in your Music folder (wherever Windows keeps it, also for OneDrive), created when you turn the music on |
-| Music volume | 40% | |
+| Music file | First file in the folder | **Browse...** opens Windows' own file picker in the music folder. A file picked from somewhere else is copied into the folder |
+| Music volume | 30% | |
 
-Music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.
+The music comes from one folder: `Couch Mode` in your Music folder (wherever Windows keeps it, also with OneDrive). Couch Mode creates it. Put mp3, ogg, opus, m4a, aac, wav, flac or webm files of up to 64 MB in it; the chosen one plays on repeat. No music comes with the plugin.
 
 Changes apply right away.
 
@@ -77,7 +77,7 @@ Everything runs inside the plugin itself, through Millennium's Lua backend. Ther
 - **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
 - **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
-- **Music:** reads only the music file or folder you set, and plays it inside Steam.
+- **Music:** creates the `Couch Mode` folder in your Music folder, reads only the music file you chose there, and plays it inside Steam. Browse opens Windows' Open dialog; a file from elsewhere is copied into the folder.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 

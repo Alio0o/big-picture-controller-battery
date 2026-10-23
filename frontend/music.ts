@@ -12,7 +12,7 @@ import { gameRunning } from './steam';
 import { contextKind, subscribePopups } from './windows';
 
 type Track = { path: string; name: string; size: number; type: string };
-export type MusicList = { folder: string; tracks: Track[]; error?: string };
+export type MusicList = { folder: string; tracks: Track[]; files: number; chosen: string; error?: string };
 
 const TICK_MS = 250;
 const FADE_MS = 1200;
@@ -43,13 +43,19 @@ let warnedPlay = false;
 
 export async function listMusic(): Promise<MusicList> {
 	const value = fromBackend<any>(await backend.getMusic());
-	return { folder: String(value?.folder || ''), tracks: Array.isArray(value?.tracks) ? value.tracks : [], error: value?.error };
+	return {
+		folder: String(value?.folder || ''),
+		tracks: Array.isArray(value?.tracks) ? value.tracks : [],
+		files: Number(value?.files) || 0,
+		chosen: String(value?.chosen || ''),
+		error: value?.error,
+	};
 }
 
 function refreshList() {
 	listing ??= listMusic()
 		.then(value => { list = value; index = 0; listedAt = Date.now(); })
-		.catch(error => { list = { folder: '', tracks: [], error: String(error) }; listedAt = Date.now(); })
+		.catch(error => { list = { folder: '', tracks: [], files: 0, chosen: '', error: String(error) }; listedAt = Date.now(); })
 		.finally(() => { listing = null; });
 }
 
@@ -197,7 +203,7 @@ function tick() {
 	level = target > level ? Math.min(target, level + step) : Math.max(target, level - step);
 
 	if (target > 0) ensureTrack();
-	const volume = Math.max(0, Math.min(100, settings()?.music_volume ?? 40)) / 100;
+	const volume = Math.max(0, Math.min(100, settings()?.music_volume ?? 30)) / 100;
 	audio.volume = level * level * volume; // fades sound even to the ear
 	if (level > 0 && audio.paused && loadedPath) {
 		audio.play().catch(error => {
@@ -222,9 +228,9 @@ export function startMusic() {
 	audio.preload = 'auto';
 	audio.addEventListener('ended', nextTrack);
 	unsubscribe = subscribePopups(track);
-	let lastPath = settings()?.music_path;
+	let lastFile = settings()?.music_file;
 	unsubscribeSettings = onSettings(s => {
-		if (s.music_path !== lastPath) { lastPath = s.music_path; list = null; releaseTrack(); }
+		if (s.music_file !== lastFile) { lastFile = s.music_file; list = null; releaseTrack(); }
 	});
 	tick();
 }

@@ -75,74 +75,82 @@ check("migrate without file", settings.migrate({ tmp .. ".missing" }) == nil)
 os.remove(tmp)
 fresh()
 check("new defaults", settings.get().game_mute == true and settings.get().music == false
-    and settings.get().music_volume == 40 and settings.get().battery_badge == true)
+    and settings.get().music_volume == 30 and settings.get().battery_badge == true)
 check("set music volume", setSetting("music_volume", "55") == "ok" and setSetting("music_volume", "101") ~= "ok")
 check("music in overlay off by default", settings.get().music_in_overlay == false and setSetting("music_in_overlay", "true") == "ok")
 check("set game mute off", setSetting("game_mute", "false") == "ok" and settings.get().game_mute == false)
 fresh()
 
--- Music files
+-- Music: one folder, one chosen file. The checks use a test folder with a
+-- name outside English (UTF-8 here) instead of the real Music folder.
 local music = require("music")
-check("base64", music.base64("") == "" and music.base64("f") == "Zg==" and music.base64("fo") == "Zm8="
-    and music.base64("foo") == "Zm9v" and music.base64("\255\0\128hello") == "/wCAaGVsbG8=")
-local song = os.tmpname() .. ".mp3"
-f = assert(io.open(song, "wb"))
-f:write(string.rep("\1\2\3", 300000)) -- 900 000 bytes, two pieces
-f:close()
-setSetting("music_path", song)
-local listed = getMusic()
-check("music lists a file", listed:match('"type":"audio/mpeg"') ~= nil and listed:match('"size":900000') ~= nil)
-local first, second = readMusic(song, 0), readMusic(song, music.CHUNK)
-check("music read in pieces", #first == math.ceil(music.CHUNK / 3) * 4 and #second > 0 and readMusic(song, 900000) == "")
-check("music refuses other files", readMusic(tmp, 0) == "")
-setSetting("music_path", song .. ".txt")
-check("music reports a missing file", getMusic():match('"error":"Not found: ') ~= nil)
-setSetting("music_path", '"' .. song .. '"')
-check("music accepts a quoted path", getMusic():match('"size":900000') ~= nil)
-os.remove(song)
-
--- Music folders, including a name outside English (UTF-8 here).
 local win32 = require("win32")
 local ffi = require("ffi")
-ffi.cdef("int32_t RemoveDirectoryW(const uint16_t* lpPathName);")
+ffi.cdef("int32_t RemoveDirectoryW(const uint16_t* lpPathName); int32_t DeleteFileW(const uint16_t* lpFileName);")
+check("base64", music.base64("") == "" and music.base64("f") == "Zg==" and music.base64("fo") == "Zm8="
+    and music.base64("foo") == "Zm9v" and music.base64("\255\0\128hello") == "/wCAaGVsbG8=")
+check("music folder is per user", (music.folder() or ""):match("\\Couch Mode$") ~= nil)
+print("music folder: " .. tostring(music.folder()))
+check("music volume default 30", settings.get().music_volume == 30)
+check("music file name only", setSetting("music_file", "C:\\x.mp3") ~= "ok" and setSetting("music_file", "a.mp3") == "ok")
+setSetting("music_file", "")
+
 local base = os.getenv("TEMP") .. "\\couch-mode-check"
 local folder = base .. "\\M\195\188sik \226\156\147"
-win32.create_folder(base)
-check("unicode folder created", win32.create_folder(folder) and win32.path_kind(folder) == "folder")
+music.set_folder(folder)
 check("utf8 round trip", win32.utf8(win32.utf16(folder)) == folder)
-setSetting("music_path", folder .. "\\")
-check("music empty folder", getMusic():match('"error":"Put music files in ') ~= nil)
-for _, name in ipairs({ "b.MP3", "a.ogg", "notes.txt" }) do
-    f = assert(io.open(base .. "\\" .. name, "wb"))
-    f:write("abc")
-    f:close()
+win32.create_folder(base)
+check("music folder created", getMusic():match('"error":"Put music files in ') ~= nil and win32.path_kind(folder) == "folder")
+
+-- Files go in through the dialog's adopt step, which copies them in.
+local function write(path, data)
+    local out = assert(io.open(path, "wb"))
+    out:write(data)
+    out:close()
 end
-setSetting("music_path", base)
+write(base .. "\\b.MP3", string.rep("\1\2\3", 300000)) -- 900 000 bytes, two pieces
+write(base .. "\\a.ogg", "abc")
+write(base .. "\\notes.txt", "abc")
+check("adopt copies a file in", music.adopt(base .. "\\b.MP3") == "b.MP3" and win32.path_kind(folder .. "\\b.MP3") == "file")
+check("adopt keeps an existing name", music.adopt(base .. "\\b.MP3") == "b (2).MP3")
+check("adopt takes a file already there", music.adopt(folder .. "\\b.MP3") == "b.MP3")
+check("adopt refuses other files", music.adopt(base .. "\\notes.txt") == nil)
+music.adopt(base .. "\\a.ogg")
+
 local list = music.list()
-check("music folder lists playable files in order", #list.tracks == 2 and list.tracks[1].name == "a.ogg"
-    and list.tracks[2].name == "b.MP3" and list.tracks[2].type == "audio/mpeg")
-check("music folder file read", readMusic(base .. "\\a.ogg", 0) == "YWJj")
+check("first file plays when none is chosen", list.files == 3 and list.chosen == "a.ogg" and #list.tracks == 1)
+setSetting("music_file", "B.mp3")
+list = music.list()
+check("chosen file plays", list.chosen == "b.MP3" and list.tracks[1].size == 900000 and list.tracks[1].type == "audio/mpeg")
+local song = list.tracks[1].path
+local first, second = readMusic(song, 0), readMusic(song, music.CHUNK)
+check("music read in pieces", #first == math.ceil(music.CHUNK / 3) * 4 and #second > 0 and readMusic(song, 900000) == "")
+check("music refuses files that do not play", readMusic(folder .. "\\a.ogg", 0) == "")
+setSetting("music_file", "gone.mp3")
+check("missing chosen file falls back to the first", music.list().chosen == "a.ogg")
+check("music json", getMusic():match('"chosen":"a.ogg"') ~= nil and getMusic():match('"files":3') ~= nil)
+
+fresh()
+
+-- The Open dialog. Needs someone (or a script) to answer it, so it only runs
+-- with COUCH_TEST_DIALOG set to a music file to choose; it ends up copied
+-- into the test folder.
+local dialog_file = os.getenv("COUCH_TEST_DIALOG")
+if dialog_file then
+    local chosen = browseMusic()
+    print("dialog file: " .. chosen)
+    check("dialog returns the chosen file's name", chosen == dialog_file:match("([^\\]+)$"))
+    check("dialog file copied in", win32.path_kind(folder .. "\\" .. chosen) == "file")
+    check("dialog cancelled", browseMusic() == "")
+end
+-- Clean up the test folders.
+for _, name in ipairs(win32.list_files(folder)) do ffi.C.DeleteFileW(win32.utf16(folder .. "\\" .. name)) end
 for _, name in ipairs({ "b.MP3", "a.ogg", "notes.txt" }) do os.remove(base .. "\\" .. name) end
 ffi.C.RemoveDirectoryW(win32.utf16(folder))
 ffi.C.RemoveDirectoryW(win32.utf16(base))
-check("music default folder", (music.default_folder() or ""):match("\\Couch Mode$") ~= nil)
-print("music default folder: " .. tostring(music.default_folder()))
-setSetting("music_path", os.getenv("WINDIR") .. "\\win.ini")
-check("dialog starts in the music's folder", music.start_folder() == os.getenv("WINDIR"))
-setSetting("music_path", "")
-check("dialog start folder exists", win32.path_kind(music.start_folder() or "?") == "folder")
+check("test folders removed", win32.path_kind(base) == nil)
+music.set_folder(nil)
 fresh()
-
--- The Open dialog. Needs someone (or tools: a script) to answer it, so it only
--- runs with COUCH_TEST_DIALOG set to the file path to choose. The folder
--- dialog that follows is expected to be cancelled.
-local dialog_file = os.getenv("COUCH_TEST_DIALOG")
-if dialog_file then
-    local chosen = browseMusic("file")
-    print("dialog file: " .. chosen)
-    check("dialog returns the chosen file", chosen:lower() == dialog_file:lower())
-    check("dialog cancelled", browseMusic("folder") == "")
-end
 
 -- Hold logic (no Windows calls)
 local h = shortcut.hold_step

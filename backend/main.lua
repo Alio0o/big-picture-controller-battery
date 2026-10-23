@@ -170,18 +170,21 @@ function readMusic(path, offset)
 end
 
 ---@ffi
---- Opens Windows' Open dialog to choose the music. Returns the chosen path,
---- "" when cancelled, or "error: ..." when the dialog cannot open.
----@param kind string "file" or "folder"
+--- Opens Windows' Open dialog in the music folder to choose the music file.
+--- A file from elsewhere is copied into the folder. Returns the file name to
+--- save as music_file, "" when cancelled, or "error: ..." with a reason.
 ---@return string
-function browseMusic(kind)
-    local ok, path, err = pcall(dialog.choose, kind == "folder" and "folder" or "file", music.start_folder())
+function browseMusic()
+    local ok, path, err = pcall(dialog.choose, "file", music.ensure_folder())
     if not ok or path == nil then
         local message = tostring(ok and err or path)
         logger:error("Music dialog failed: " .. message)
         return "error: " .. message
     end
-    return path
+    if path == "" then return "" end
+    local okadopt, name, problem = pcall(music.adopt, path)
+    if not okadopt or not name then return "error: " .. tostring(okadopt and problem or name) end
+    return name
 end
 
 local function on_load()
@@ -194,6 +197,7 @@ local function on_load()
     if not ok or copied == nil then
         logger:warn("Settings from Big Picture Controller Battery not copied: " .. tostring(ok and reason or copied))
     end
+    if not pcall(music.ensure_folder) then logger:warn("Could not create the music folder") end
     millennium.ready()
 end
 

@@ -1,6 +1,11 @@
 // Settings page in Millennium's plugin list (desktop Steam > Millennium > Plugins).
-import { ButtonItem, DialogControlsSectionHeader, DropdownItem, Field, SliderField, TextField, ToggleField } from 'millennium';
-import { useEffect, useRef, useState } from 'react';
+//
+// Every row is a Steam Field: a title-case label, the description under it,
+// and the control on the right (or below it for sliders and text), so the
+// spacing matches Steam's own settings. Section titles are Fields too, so
+// they share the rows' indent.
+import { DialogButton, Dropdown, Field, SliderField, TextField, Toggle } from 'millennium';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { loadSettings, saveSetting, Settings } from './config';
 import { listMusic, MusicList } from './music';
 
@@ -8,29 +13,77 @@ const HOLD_MIN = 200, HOLD_MAX = 2000, HOLD_STEP = 50;
 // Steam's slider ignores `step` while dragging, so values are snapped here.
 const snap = (v: number) => Math.min(HOLD_MAX, Math.max(HOLD_MIN, Math.round(v / HOLD_STEP) * HOLD_STEP));
 
+const SECTION_GAP = 24;
+const BUTTON_STYLE = { minWidth: '120px', padding: '0 20px', whiteSpace: 'nowrap' } as const;
+
+function Section({ title, first }: { title: string; first?: boolean }) {
+	return (
+		<>
+			{!first && <div style={{ height: SECTION_GAP }} />}
+			<Field
+				label={<span style={{ fontSize: '1.15em', fontWeight: 700 }}>{title}</span>}
+				bottomSeparator="standard"
+				focusable={false}
+			/>
+		</>
+	);
+}
+
+// A row with the control on the right, centred against the label.
+function Row(props: { label: string; description?: ReactNode; disabled?: boolean; children: ReactNode }) {
+	return (
+		<Field
+			label={props.label}
+			description={props.description}
+			disabled={props.disabled}
+			childrenContainerWidth="min"
+			inlineWrap="keep-inline"
+			verticalAlignment="center"
+			bottomSeparator="standard"
+		>
+			{props.children}
+		</Field>
+	);
+}
+
+// A row with the control below the label, full width.
+function WideRow(props: { label: string; description?: ReactNode; disabled?: boolean; children: ReactNode }) {
+	return (
+		<Field
+			label={props.label}
+			description={props.description}
+			disabled={props.disabled}
+			childrenLayout="below"
+			childrenContainerWidth="max"
+			bottomSeparator="standard"
+		>
+			{props.children}
+		</Field>
+	);
+}
+
 function musicDescription(music: MusicList | null) {
 	if (!music) return 'Checking...';
-	if (music.tracks.length === 0) return music.error || 'No music found.';
-	const names = music.tracks.slice(0, 3).map(t => t.name).join(', ');
-	const more = music.tracks.length > 3 ? ` and ${music.tracks.length - 3} more` : '';
-	return `${music.tracks.length} file${music.tracks.length === 1 ? '' : 's'}: ${names}${more}`;
+	const folder = music.folder ? `Put music files in ${music.folder}.` : '';
+	if (!music.chosen) return `${music.error || 'No music yet.'} ${music.error?.startsWith('Put music') ? '' : folder}`.trim();
+	const others = music.files > 1 ? ` ${music.files} files in the folder; Browse picks another.` : '';
+	return `${music.chosen}.${others} ${folder}`.trim();
 }
 
 export function SettingsPage() {
 	const [settings, setSettings] = useState<Settings | null>(null);
 	const [error, setError] = useState('');
 	const [keysDraft, setKeysDraft] = useState('');
-	const [pathDraft, setPathDraft] = useState('');
 	const [music, setMusic] = useState<MusicList | null>(null);
 	const [browsing, setBrowsing] = useState(false);
 	const pending = useRef<Record<string, number>>({});
 	const [access, setAccess] = useState<'on' | 'off' | 'waiting' | ''>('');
 
-	const checkMusic = () => { setMusic(null); listMusic().then(setMusic).catch(e => setMusic({ folder: '', tracks: [], error: String(e) })); };
+	const checkMusic = () => { listMusic().then(setMusic).catch(e => setMusic({ folder: '', tracks: [], files: 0, chosen: '', error: String(e) })); };
 
 	useEffect(() => {
 		loadSettings()
-			.then(s => { setSettings(s); setKeysDraft(s.keys); setPathDraft(s.music_path); })
+			.then(s => { setSettings(s); setKeysDraft(s.keys); })
 			.catch(e => setError(String(e)));
 		backend.getXboxModeAccess().then(v => setAccess(v === 'on' ? 'on' : 'off')).catch(() => {});
 		checkMusic();
@@ -67,18 +120,15 @@ export function SettingsPage() {
 		setError('Xbox mode access did not change.');
 	};
 
-	const usePath = (path: string) => {
-		setPathDraft(path);
-		save('music_path', path, 0, checkMusic);
-	};
-
-	// The backend waits while Windows' dialog is open, then returns the choice.
-	const browse = async (kind: 'file' | 'folder') => {
+	// The backend waits while Windows' dialog is open, then returns the file
+	// name in the music folder (a file from elsewhere is copied in).
+	const browse = async () => {
 		setBrowsing(true);
 		try {
-			const result = await backend.browseMusic(kind);
-			if (result.startsWith('error: ')) setError(`The ${kind} picker did not open: ${result.slice(7)}`);
-			else if (result) usePath(result);
+			const result = await backend.browseMusic();
+			if (result.startsWith('error: ')) setError(result.slice(7));
+			else if (result) save('music_file', result, 0, checkMusic);
+			else checkMusic();
 		} catch (e) {
 			setError(String(e));
 		} finally {
@@ -89,127 +139,90 @@ export function SettingsPage() {
 	if (!settings) return <Field label={error || 'Loading settings...'} />;
 	if (!settings.windows) return <Field label="Not available" description={settings.unavailable_reason} />;
 
-	const on = settings.overlay_shortcut;
+	const shortcut = settings.overlay_shortcut;
 	return (
 		<>
-			{error && <Field label="Not saved" description={error} />}
+			{error && <Field label="Not saved" description={error} bottomSeparator="standard" />}
 
-			<DialogControlsSectionHeader>Controller battery</DialogControlsSectionHeader>
-			<ToggleField
-				label="Battery next to the clock"
-				description="Shows the Bluetooth controller's battery in Big Picture and in the game overlay."
-				checked={settings.battery_badge}
-				onChange={checked => save('battery_badge', checked)}
-			/>
+			<Section title="Controller battery" first />
+			<Row label="Battery next to the clock" description="Shows the Bluetooth controller's battery in Big Picture and in the game overlay.">
+				<Toggle value={settings.battery_badge} onChange={checked => save('battery_badge', checked)} />
+			</Row>
 
-			<DialogControlsSectionHeader>Hold for overlay</DialogControlsSectionHeader>
-			<ToggleField
-				label="Hold to open Steam overlay"
-				description="Hold a controller button in a game to open the Steam overlay. Useful when the guide button is left to Windows Game Bar."
-				checked={on}
-				onChange={checked => save('overlay_shortcut', checked)}
-			/>
-			<SliderField
-				label="Hold time"
-				description={`${settings.hold_ms} ms`}
-				value={settings.hold_ms}
-				min={HOLD_MIN}
-				max={HOLD_MAX}
-				step={HOLD_STEP}
-				disabled={!on}
-				onChange={v => save('hold_ms', snap(v), 400)}
-			/>
-			<DropdownItem
-				label="Button"
-				disabled={!on}
-				rgOptions={[{ label: 'Menu', data: 'Menu' }, { label: 'View', data: 'View' }]}
-				selectedOption={settings.button}
-				onChange={option => save('button', option.data)}
-			/>
-			<TextField
-				label="Overlay keys"
-				description="Must match Steam > Settings > In Game > Overlay shortcut keys. For example Shift+Tab."
-				value={keysDraft}
-				disabled={!on}
-				onChange={e => { setKeysDraft(e.target.value); save('keys', e.target.value, 800); }}
-			/>
-			<ButtonItem
+			<Section title="Hold for overlay" />
+			<Row label="Hold to open the Steam overlay" description="Hold a controller button in a game to open the overlay. Useful when the guide button is left to Windows Game Bar.">
+				<Toggle value={shortcut} onChange={checked => save('overlay_shortcut', checked)} />
+			</Row>
+			<WideRow label="Hold time" description={`${settings.hold_ms} ms`} disabled={!shortcut}>
+				<SliderField
+					value={settings.hold_ms}
+					min={HOLD_MIN}
+					max={HOLD_MAX}
+					step={HOLD_STEP}
+					disabled={!shortcut}
+					bottomSeparator="none"
+					onChange={v => save('hold_ms', snap(v), 400)}
+				/>
+			</WideRow>
+			<Row label="Button" disabled={!shortcut}>
+				<Dropdown
+					rgOptions={[{ label: 'Menu', data: 'Menu' }, { label: 'View', data: 'View' }]}
+					selectedOption={settings.button}
+					disabled={!shortcut}
+					onChange={option => save('button', option.data)}
+				/>
+			</Row>
+			<WideRow label="Overlay keys" description="Must match Steam > Settings > In Game > Overlay shortcut keys, for example Shift+Tab." disabled={!shortcut}>
+				<TextField
+					value={keysDraft}
+					disabled={!shortcut}
+					onChange={e => { setKeysDraft(e.target.value); save('keys', e.target.value, 800); }}
+				/>
+			</WideRow>
+			<Row
 				label="Xbox mode controller access"
 				description={
 					access === 'on' ? 'On. The shortcut also works in Windows Xbox mode.'
 					: access === 'waiting' ? 'Waiting for Windows...'
 					: 'Off. In Windows Xbox mode, Windows hides the controller from this plugin, so the shortcut does nothing. Turning this on needs administrator rights once.'
 				}
-				disabled={access === '' || access === 'waiting'}
-				onClick={() => changeAccess(access === 'on' ? 'off' : 'on')}
 			>
-				{access === 'on' ? 'Remove' : 'Turn on'}
-			</ButtonItem>
+				<DialogButton
+					style={BUTTON_STYLE}
+					disabled={access === '' || access === 'waiting'}
+					onClick={() => changeAccess(access === 'on' ? 'off' : 'on')}
+				>
+					{access === 'on' ? 'Remove' : 'Turn on'}
+				</DialogButton>
+			</Row>
 
-			<DialogControlsSectionHeader>Game mute</DialogControlsSectionHeader>
-			<ToggleField
-				label="Mute the game while the overlay is open"
-				description="The game's sound comes back when the overlay closes. Steam's own sounds and videos keep playing."
-				checked={settings.game_mute}
-				onChange={checked => save('game_mute', checked)}
-			/>
+			<Section title="Game mute" />
+			<Row label="Mute the game while the overlay is open" description="The game's sound comes back when the overlay closes. Steam's own sounds and videos keep playing.">
+				<Toggle value={settings.game_mute} onChange={checked => save('game_mute', checked)} />
+			</Row>
 
-			<DialogControlsSectionHeader>Music</DialogControlsSectionHeader>
-			<ToggleField
-				label="Music in Big Picture"
-				description="Plays your own music everywhere in Big Picture. It fades out on the store, while a video or trailer plays, while a game runs, and when another program is in front."
-				checked={settings.music}
-				onChange={checked => save('music', checked)}
-			/>
-			<ToggleField
-				label="Music in the game overlay"
-				description="Also plays while the overlay is open over a game, with the game muted. Needs Game mute on."
-				checked={settings.music_in_overlay}
-				disabled={!settings.music}
-				onChange={checked => save('music_in_overlay', checked)}
-			/>
-			<Field
-				label={settings.music_path ? 'Music from' : 'Music from (default folder)'}
-				description={`${music?.folder || '...'} · ${musicDescription(music)}`}
-			/>
-			<ButtonItem
-				label="Choose a music file"
-				description="Opens Windows' file picker on the desktop. Plays this one file on repeat."
-				disabled={browsing}
-				onClick={() => browse('file')}
-			>
-				Browse...
-			</ButtonItem>
-			<ButtonItem
-				label="Choose a music folder"
-				description="Plays every music file in the folder, in name order."
-				disabled={browsing}
-				onClick={() => browse('folder')}
-			>
-				Browse...
-			</ButtonItem>
-			<ButtonItem
-				label="Use the default folder"
-				description="The Couch Mode folder in your Music folder. It is created when the music is on."
-				disabled={browsing || !settings.music_path}
-				onClick={() => usePath('')}
-			>
-				Use default
-			</ButtonItem>
-			<TextField
-				label="Or type a file or folder path"
-				value={pathDraft}
-				onChange={e => { setPathDraft(e.target.value); save('music_path', e.target.value.trim(), 800, checkMusic); }}
-			/>
-			<SliderField
-				label="Music volume"
-				description={`${settings.music_volume}%`}
-				value={settings.music_volume}
-				min={0}
-				max={100}
-				step={5}
-				onChange={v => save('music_volume', Math.round(v / 5) * 5, 300)}
-			/>
+			<Section title="Music" />
+			<Row label="Music in Big Picture" description="Plays your music everywhere in Big Picture. It fades out on the store, while a video or trailer plays, while a game runs, and when another program is in front.">
+				<Toggle value={settings.music} onChange={checked => save('music', checked)} />
+			</Row>
+			<Row label="Music in the game overlay" description="Also plays while the overlay is open over a game, with the game muted. Needs game mute." disabled={!settings.music}>
+				<Toggle value={settings.music_in_overlay} disabled={!settings.music} onChange={checked => save('music_in_overlay', checked)} />
+			</Row>
+			<Row label="Music file" description={musicDescription(music)}>
+				<DialogButton style={BUTTON_STYLE} disabled={browsing} onClick={browse}>
+					{browsing ? 'Choosing...' : 'Browse...'}
+				</DialogButton>
+			</Row>
+			<WideRow label="Music volume" description={`${settings.music_volume}%`}>
+				<SliderField
+					value={settings.music_volume}
+					min={0}
+					max={100}
+					step={5}
+					bottomSeparator="none"
+					onChange={v => save('music_volume', Math.round(v / 5) * 5, 300)}
+				/>
+			</WideRow>
 		</>
 	);
 }

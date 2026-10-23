@@ -108,6 +108,7 @@ ffi.cdef [[
         char* lpMultiByteStr, int32_t cbMultiByte, const char* lpDefaultChar, int32_t* lpUsedDefaultChar);
     uint32_t GetFileAttributesW(const uint16_t* lpFileName);
     int32_t  CreateDirectoryW(const uint16_t* lpPathName, void* lpSecurityAttributes);
+    int32_t  CopyFileW(const uint16_t* lpExistingFileName, const uint16_t* lpNewFileName, int32_t bFailIfExists);
     void*    FindFirstFileW(const uint16_t* lpFileName, COUCH_WIN32_FIND_DATAW* lpFindFileData);
     int32_t  FindNextFileW(void* hFindFile, COUCH_WIN32_FIND_DATAW* lpFindFileData);
     int32_t  FindClose(void* hFindFile);
@@ -318,6 +319,11 @@ function M.path_kind(path)
     local attributes = M.kernel32.GetFileAttributesW(M.utf16(path))
     if attributes == INVALID_ATTRIBUTES then return nil end
     return bit.band(attributes, DIRECTORY) ~= 0 and "folder" or "file"
+end
+
+-- Copies a file; never replaces one that is already there.
+function M.copy_file(from, to)
+    return M.kernel32.CopyFileW(M.utf16(from), M.utf16(to), 1) ~= 0
 end
 
 function M.create_folder(path)
