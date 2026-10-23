@@ -3,8 +3,9 @@
 // Every row is a Steam Field, which Millennium draws as a card: the title
 // with its control on the right in one line, and the description under them
 // across the whole card (a control beside the description would squeeze it
-// into a narrow column). Sliders and text boxes sit full width below. Section
-// titles are plain text between the cards, all in one style.
+// into a narrow column). Sliders are Steam's own slider rows, which span the
+// card; inside a Field they collapse. Section titles are plain text between
+// the cards, all in one style.
 import { DialogButton, Dropdown, Field, SliderField, TextField, Toggle } from 'millennium';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { loadSettings, saveSetting, Settings } from './config';
@@ -23,6 +24,12 @@ function Section({ title, first }: { title: string; first?: boolean }) {
 			{title}
 		</div>
 	);
+}
+
+// Steam's slider shows its label in small capitals; this keeps it like the
+// other titles.
+function Label({ children }: { children: ReactNode }) {
+	return <span style={{ textTransform: 'none', letterSpacing: 'normal', fontSize: '16px' }}>{children}</span>;
 }
 
 // A card with the title and its control in one line, the description below
@@ -151,17 +158,18 @@ export function SettingsPage() {
 			<Row label="Hold to open the Steam overlay" description="Hold a controller button in a game to open the overlay. Useful when the guide button is left to Windows Game Bar.">
 				<Toggle value={shortcut} onChange={checked => save('overlay_shortcut', checked)} />
 			</Row>
-			<WideRow label="Hold time" description={`${settings.hold_ms} ms`} disabled={!shortcut}>
-				<SliderField
-					value={settings.hold_ms}
-					min={HOLD_MIN}
-					max={HOLD_MAX}
-					step={HOLD_STEP}
-					disabled={!shortcut}
-					bottomSeparator="none"
-					onChange={v => save('hold_ms', snap(v), 400)}
-				/>
-			</WideRow>
+			<SliderField
+				label={<Label>Hold time</Label>}
+				value={settings.hold_ms}
+				min={HOLD_MIN}
+				max={HOLD_MAX}
+				step={HOLD_STEP}
+				showValue
+				valueSuffix=" ms"
+				disabled={!shortcut}
+				bottomSeparator="standard"
+				onChange={v => { const hold = snap(v); if (hold !== settings.hold_ms) save('hold_ms', hold, 400); }}
+			/>
 			<Row label="Button" disabled={!shortcut}>
 				<Dropdown
 					rgOptions={[{ label: 'Menu', data: 'Menu' }, { label: 'View', data: 'View' }]}
@@ -211,16 +219,17 @@ export function SettingsPage() {
 					{browsing ? 'Choosing...' : 'Browse...'}
 				</DialogButton>
 			</Row>
-			<WideRow label="Music volume" description={`${settings.music_volume}%`}>
-				<SliderField
-					value={settings.music_volume}
-					min={0}
-					max={100}
-					step={5}
-					bottomSeparator="none"
-					onChange={v => save('music_volume', Math.round(v / 5) * 5, 300)}
-				/>
-			</WideRow>
+			<SliderField
+				label={<Label>Music volume</Label>}
+				value={settings.music_volume}
+				min={0}
+				max={100}
+				step={5}
+				showValue
+				valueSuffix="%"
+				bottomSeparator="standard"
+				onChange={v => { const volume = Math.round(v / 5) * 5; if (volume !== settings.music_volume) save('music_volume', volume, 300); }}
+			/>
 		</>
 	);
 }
