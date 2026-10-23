@@ -1,9 +1,15 @@
 # Couch Mode
 
-A [Millennium](https://steambrew.app) plugin for Steam on Windows.
+A [Millennium](https://steambrew.app) plugin for Steam on Windows that makes Big Picture feel more like a console.
 
-- Shows your Bluetooth controller's battery level next to the clock in Steam Big Picture and in the in-game overlay.
-- Hold the Menu button in a game to open the Steam overlay. This is on by default and can be turned off.
+- **Controller battery:** shows your Bluetooth controller's battery level next to the clock in Steam Big Picture and in the in-game overlay.
+- **Hold for overlay:** hold the Menu button in a game to open the Steam overlay.
+- **Game mute:** the game goes quiet while the Steam overlay is open, and its sound comes back when the overlay closes.
+- **Home music:** your own music plays on the Big Picture Home and Library pages. It fades out on the store and other pages, while a trailer or video plays, while a game runs, and when Big Picture is not in front.
+
+Each one can be turned on or off in the plugin settings. Home music is off until you turn it on.
+
+Couch Mode was called Big Picture Controller Battery before version 3.0.
 
 ## Why the overlay shortcut
 
@@ -26,6 +32,8 @@ A short press still goes to the game as normal. Turn it off in the plugin settin
    - Or copy the `.star` file yourself into Steam's Millennium plugins folder, usually `C:\Program Files (x86)\Steam\millennium\plugins\`.
 4. Start Steam. In desktop mode, open Millennium > Plugins, turn on **Couch Mode**, and press Save Changes.
 
+Coming from Big Picture Controller Battery: `install.cmd` removes the old `big-picture-controller-battery.star`, and Couch Mode copies its settings on first start. If you copy the file yourself, delete the old one. Turn on Couch Mode in the plugin list once, as it is a new entry there.
+
 When building from source, `install.cmd` in the repository installs `dist\couch-mode.star`.
 
 To remove it, first press **Remove** next to "Xbox mode controller access" if you turned it on, then turn the plugin off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
@@ -44,11 +52,18 @@ Desktop Steam > Millennium > Plugins > Couch Mode.
 
 | Setting | Default | |
 |---|---|---|
+| Battery next to the clock | On | Shows or hides the battery badge |
 | Hold to open Steam overlay | On | Turns the shortcut on or off |
 | Hold time | 600 ms | 200 to 2000 ms |
 | Button | Menu | Menu or View |
 | Overlay keys | Shift+Tab | Must match Steam > Settings > In Game > Overlay shortcut keys |
 | Xbox mode controller access | Off | See [Xbox mode](#xbox-mode). Needs administrator rights once |
+| Mute the game while the overlay is open | On | |
+| Music on Home and Library | Off | |
+| Music file or folder | Empty | A music file, or a folder whose files play in name order. Empty means `Music\Couch Mode` in your user folder |
+| Music volume | 40% | |
+
+Home music plays mp3, ogg, opus, m4a, aac, wav, flac and webm files of up to 64 MB each. No music comes with the plugin.
 
 Changes apply right away.
 
@@ -60,6 +75,8 @@ Everything runs inside the plugin itself, through Millennium's Lua backend. Ther
 - **Controller buttons:** reads the controller through XInput (`xinput1_4.dll`) about 25 times a second, only while a game is running and a controller is connected.
 - **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
+- **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
+- **Home music:** reads only the music file or folder you set, and plays it inside Steam.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 
@@ -69,6 +86,9 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - No charging indicator; Windows does not report charging for these devices.
 - The game also receives the Menu press, so its pause menu may open behind the overlay.
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
+- Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
+- Home music decides the page from Big Picture's own navigation. If Steam changes that, the music only pauses for videos, games and focus.
+- Music paths with letters outside English may not open.
 - Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.5.0, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source
@@ -80,7 +100,7 @@ npm install
 npm run build
 ```
 
-The plugin is written to `dist/couch-mode.star`. `npm run typecheck` checks the frontend. With [LuaJIT](https://luajit.org) on Windows, `luajit tools/check-backend.lua` runs the backend checks against your real controller.
+The plugin is written to `dist/couch-mode.star`. `npm run typecheck` checks the frontend. With [LuaJIT](https://luajit.org) on Windows, `luajit tools/check-backend.lua` runs the backend checks against your real controller. Set `COUCH_TEST_PID` to the process id of a program that plays sound (something silent) to also check muting it.
 
 ## License
 
