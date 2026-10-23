@@ -11,6 +11,13 @@ import { useEffect, useState } from 'react';
 import { onSettings, saveSetting, settings, Settings } from './config';
 
 export const MUSIC_ID = 'couch-mode-music';
+// Steam's top bar CSS sizes header icons, so the size is set inline. 18px
+// with the view box trimmed to the note gives a ~15px glyph like the
+// network icon next to it.
+const ICON = 18;
+const VIEW_BOX = '1.5 1.5 21 21';
+// Steam's top bar styles a focused item through this class (white box, dark icon).
+const FOCUS_CLASS = 'gpfocus';
 
 type Nav = { Context: any; node: any };
 type Placed = { host: HTMLElement; root: any; node: any };
@@ -37,8 +44,8 @@ const title = (paused: boolean) => (paused ? 'Music paused. Resume music' : 'Pau
 
 function Note({ paused }: { paused: boolean }) {
 	return (
-		<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor"
-			strokeLinecap="round" strokeLinejoin="round" style={{ flex: '0 0 auto' }}>
+		<svg viewBox={VIEW_BOX} width={ICON} height={ICON} aria-hidden="true" fill="none" stroke="currentColor"
+			strokeLinecap="round" strokeLinejoin="round" style={{ flex: '0 0 auto', width: `${ICON}px`, height: `${ICON}px` }}>
 			<path d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0a3 3 0 0 1 6 0Z" strokeWidth="1.5" />
 			{paused && <path d="M3 3l18 18" strokeWidth="2" />}
 		</svg>
@@ -47,6 +54,7 @@ function Note({ paused }: { paused: boolean }) {
 
 function MusicButton({ className }: { className: string }) {
 	const [s, setS] = useState<Settings | null>(settings());
+	const [focused, setFocused] = useState(false);
 	useEffect(() => onSettings(setS), []);
 	if (!s?.music) return null;
 	const paused = !!s.music_paused;
@@ -58,9 +66,14 @@ function MusicButton({ className }: { className: string }) {
 			aria-pressed={paused}
 			title={title(paused)}
 			noFocusRing
+			focusClassName={FOCUS_CLASS}
+			onFocus={() => setFocused(true)}
+			onBlur={() => setFocused(false)}
 			onActivate={() => void toggleMusic()}
 			onClick={() => void toggleMusic()}
-			style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch', padding: '0 8px', cursor: 'pointer', flex: '0 0 auto' }}
+			style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch', padding: '0 8px', cursor: 'pointer', flex: '0 0 auto',
+				// The same white box as Steam's focused top bar items, in case its class is not applied.
+				...(focused ? { background: 'rgb(255, 255, 255)', color: 'rgb(0, 0, 0)' } : {}) }}
 		>
 			<Note paused={paused} />
 		</Focusable>
@@ -118,8 +131,9 @@ function renderFallback(button: HTMLElement) {
 	button.setAttribute('aria-pressed', String(paused));
 	const ns = 'http://www.w3.org/2000/svg';
 	const svg = button.ownerDocument.createElementNS(ns, 'svg');
-	for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: '20', height: '20', 'aria-hidden': 'true', fill: 'none',
+	for (const [k, v] of Object.entries({ viewBox: VIEW_BOX, width: String(ICON), height: String(ICON), 'aria-hidden': 'true', fill: 'none',
 		stroke: 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })) svg.setAttribute(k, v);
+	svg.style.cssText = `flex: 0 0 auto; width: ${ICON}px; height: ${ICON}px`;
 	const paths = [['M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0a3 3 0 0 1 6 0Z', '1.5']];
 	if (paused) paths.push(['M3 3l18 18', '2']);
 	for (const [d, width] of paths) {
