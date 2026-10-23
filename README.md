@@ -76,7 +76,7 @@ Everything runs inside the plugin itself, through Millennium's Lua backend. Ther
 - **Controller buttons:** reads the controller through XInput (`xinput1_4.dll`) about 25 times a second, only while a game is running and a controller is connected.
 - **Xbox mode controller access:** reads one registry value. Only when you press the button does it start `reg.exe` through Windows' administrator prompt to set or remove it.
 - **Overlay shortcut:** when the button has been held long enough, it sends the overlay key combination with `SendInput`, as if typed on a keyboard. It does nothing when Steam itself is in front.
-- **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
+- **Game mute:** when Steam reports that the overlay opened, it turns on the mute switch of the game's audio sessions (the same switch as in the Windows Volume mixer), for the game and the programs it started, and for every other program Steam started that is not part of Steam (a game started through a launcher), through the Windows audio API (`ole32.dll`, Core Audio). It turns off only the switches it turned on, so a game you muted yourself stays muted. Steam's own sounds keep playing.
 - **Music:** creates the `Couch Mode` folder in your Music folder, reads only the music file you chose there, and plays it inside Steam. Browse opens Windows' Open dialog; a file from elsewhere is copied into the folder.
 
 All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
@@ -88,8 +88,8 @@ All Windows calls are declared in [`backend/win32.lua`](backend/win32.lua).
 - The game also receives the Menu press, so its pause menu may open behind the overlay.
 - Windows blocks simulated keys to games running as administrator, and some anti-cheat games ignore them.
 - Game mute needs Steam to report the overlay opening (`SteamClient.Overlay.RegisterForOverlayActivated`). If a Steam update removes that, the game is simply not muted.
-- Music tells the store apart by Big Picture's own navigation. If Steam changes that, the music pauses on the store only for its videos.
-- Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.5.0, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
+- Music tells the store apart by the page Big Picture and the overlay show. If Steam changes that, the music pauses on the store only for its videos.
+- Only tested on one PC so far (Windows 11, Steam Beta, Millennium 3.6.2, Xbox Wireless Controller over Bluetooth). Reports from other setups are welcome.
 
 ## Build from source
 
