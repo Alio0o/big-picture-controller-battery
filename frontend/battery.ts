@@ -2,9 +2,9 @@
 import { findModule, Millennium } from 'millennium';
 import { fromBackend } from './json';
 
-const BADGE_ID = 'big-picture-controller-battery-badge';
+const BADGE_ID = 'couch-mode-badge';
 const POLL_MS = 10000;
-const HUB_KEY = '__bigPictureControllerBatteryHub_v1';
+const HUB_KEY = '__couchModeWindowHub_v1';
 
 type Battery = { status: string; percent?: number; name?: string; message?: string };
 type Entry = {

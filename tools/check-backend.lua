@@ -41,6 +41,36 @@ check("set off", setSetting("overlay_shortcut", "false") == "ok" and pollShortcu
 check("set on", setSetting("overlay_shortcut", "true") == "ok")
 check("settings json", getSettings():match('"hold_ms":300') ~= nil)
 
+-- Settings from the old plugin id. Plain LuaJIT has no cjson, so a stand-in
+-- turns this simple JSON into a Lua table.
+package.loaded.cjson = package.loaded.cjson or {
+    decode = function(text)
+        local lua = text:gsub('"([%w_%-]+)"%s*:', '["%1"]=')
+        return assert(loadstring("return " .. lua))()
+    end,
+}
+local function fresh() config = {}; settings.reload() end
+local tmp = os.tmpname()
+local f = assert(io.open(tmp, "wb"))
+f:write('{"plugins":{"big-picture-controller-battery":{"config":{"hold_ms":250,"button":"View","keys":"Banana"}}}}')
+f:close()
+fresh()
+check("migrate copies valid old settings", settings.migrate({ tmp }) == 2 and settings.get().hold_ms == 250
+    and settings.get().button == "View" and settings.get().keys == "Shift+Tab")
+check("migrate runs once", settings.migrate({ tmp }) == 0)
+fresh()
+check("migrate keeps own settings", setSetting("hold_ms", "900") == "ok" and settings.migrate({ tmp }) == 1
+    and settings.get().hold_ms == 900)
+fresh()
+check("migrate without file", settings.migrate({ tmp .. ".missing" }) == nil)
+os.remove(tmp)
+fresh()
+check("new defaults", settings.get().game_mute == true and settings.get().music == false
+    and settings.get().music_volume == 40 and settings.get().battery_badge == true)
+check("set music volume", setSetting("music_volume", "55") == "ok" and setSetting("music_volume", "101") ~= "ok")
+check("set game mute off", setSetting("game_mute", "false") == "ok" and settings.get().game_mute == false)
+fresh()
+
 -- Hold logic (no Windows calls)
 local h = shortcut.hold_step
 h(0, false, false, 300)

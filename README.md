@@ -1,4 +1,4 @@
-# Big Picture Controller Battery
+# Couch Mode
 
 A [Millennium](https://steambrew.app) plugin for Steam on Windows.
 
@@ -20,13 +20,13 @@ A short press still goes to the game as normal. Turn it off in the plugin settin
 
 ## Install
 
-1. Download `big-picture-controller-battery.star` and `install.cmd` from the [latest release](../../releases/latest) into the same folder.
+1. Download `couch-mode.star` and `install.cmd` from the [latest release](../../releases/latest) into the same folder.
 2. Close Steam.
 3. Double-click `install.cmd`. It finds Steam's Millennium plugins folder and copies the plugin there. It stops if Steam is still running.
    - Or copy the `.star` file yourself into Steam's Millennium plugins folder, usually `C:\Program Files (x86)\Steam\millennium\plugins\`.
-4. Start Steam. In desktop mode, open Millennium > Plugins, turn on **Big Picture Controller Battery**, and press Save Changes.
+4. Start Steam. In desktop mode, open Millennium > Plugins, turn on **Couch Mode**, and press Save Changes.
 
-When building from source, `install.cmd` in the repository installs `dist\big-picture-controller-battery.star`.
+When building from source, `install.cmd` in the repository installs `dist\couch-mode.star`.
 
 To remove it, first press **Remove** next to "Xbox mode controller access" if you turned it on, then turn the plugin off in the same list and delete the file. The plugin leaves nothing else behind; its settings are stored by Millennium.
 
@@ -40,7 +40,7 @@ Fix: in the plugin's settings, press **Turn on** next to "Xbox mode controller a
 
 ## Settings
 
-Desktop Steam > Millennium > Plugins > Big Picture Controller Battery.
+Desktop Steam > Millennium > Plugins > Couch Mode.
 
 | Setting | Default | |
 |---|---|---|
@@ -80,7 +80,7 @@ npm install
 npm run build
 ```
 
-The plugin is written to `dist/big-picture-controller-battery.star`. `npm run typecheck` checks the frontend. With [LuaJIT](https://luajit.org) on Windows, `luajit tools/check-backend.lua` runs the backend checks against your real controller.
+The plugin is written to `dist/couch-mode.star`. `npm run typecheck` checks the frontend. With [LuaJIT](https://luajit.org) on Windows, `luajit tools/check-backend.lua` runs the backend checks against your real controller.
 
 ## License
 

@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
-rem Copies big-picture-controller-battery.star into Steam's Millennium plugins folder.
+rem Copies couch-mode.star into Steam's Millennium plugins folder.
 rem Double-click it with Steam closed. It looks for the .star file next to this
 rem script first, then in dist\ (after "npm run build").
 
-set "PLUGIN=big-picture-controller-battery.star"
+set "PLUGIN=couch-mode.star"
 set "SOURCE=%~dp0%PLUGIN%"
 if not exist "%SOURCE%" set "SOURCE=%~dp0dist\%PLUGIN%"
 if not exist "%SOURCE%" (
@@ -40,9 +40,22 @@ if errorlevel 1 (
 )
 
 echo Installed to %TARGET%\%PLUGIN%
+
+rem Before 3.0 the plugin was called Big Picture Controller Battery. Two copies
+rem would both read the controller, so the old file goes. Couch Mode copies
+rem its settings over on first start.
+set "OLD=%TARGET%\big-picture-controller-battery.star"
+if exist "%OLD%" (
+    del /f /q "%OLD%" >nul 2>&1
+    if exist "!OLD!" (
+        echo Could not remove the old big-picture-controller-battery.star. Delete it yourself.
+    ) else (
+        echo Removed the old big-picture-controller-battery.star.
+    )
+)
 echo.
 echo Start Steam. If this is the first install, open Millennium ^> Plugins in
-echo desktop Steam, turn on Big Picture Controller Battery and press Save Changes.
+echo desktop Steam, turn on Couch Mode and press Save Changes.
 echo.
 pause
 exit /b 0

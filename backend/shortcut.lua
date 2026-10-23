@@ -72,8 +72,8 @@ end
 -- in reverse order. The release always runs, so a key can never stay down.
 local function send_keys(keys)
     local ffi = win32.ffi
-    local input = ffi.new("BPCB_INPUT[1]")
-    local size = ffi.sizeof("BPCB_INPUT")
+    local input = ffi.new("COUCH_INPUT[1]")
+    local size = ffi.sizeof("COUCH_INPUT")
     local sent = 0
     local ok, err = pcall(function()
         for i = 1, #keys do
@@ -112,7 +112,7 @@ function M.poll()
     if not config.overlay_shortcut then return "off" end
     if not win32.available then return "off" end
 
-    state = state or win32.ffi.new("BPCB_XINPUT_STATE")
+    state = state or win32.ffi.new("COUCH_XINPUT_STATE")
     local now = win32.now_ms()
     local button = BUTTONS[config.button] or BUTTONS.Menu
     local connected, pressed, other = false, false, false

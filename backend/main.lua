@@ -68,8 +68,8 @@ end
 ---@return string
 function setSetting(key, value)
     local parsed = value
-    if key == "overlay_shortcut" then parsed = value == "true"
-    elseif key == "hold_ms" then parsed = tonumber(value) end
+    if settings.booleans[key] then parsed = value == "true"
+    elseif settings.numbers[key] then parsed = tonumber(value) end
     local ok, message = settings.set(key, parsed)
     return ok and "ok" or message
 end
@@ -101,6 +101,10 @@ local function on_load()
         logger:info("Loaded on Millennium " .. millennium.version())
     else
         logger:warn("Inactive: " .. tostring(win32.reason))
+    end
+    local ok, copied, reason = pcall(settings.migrate)
+    if not ok or copied == nil then
+        logger:warn("Settings from Big Picture Controller Battery not copied: " .. tostring(ok and reason or copied))
     end
     millennium.ready()
 end

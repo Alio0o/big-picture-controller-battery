@@ -16,20 +16,20 @@ ffi.cdef [[
         uint8_t  bLeftTrigger;
         uint8_t  bRightTrigger;
         int16_t  sThumbLX, sThumbLY, sThumbRX, sThumbRY;
-    } BPCB_XINPUT_GAMEPAD;
+    } COUCH_XINPUT_GAMEPAD;
     typedef struct {
         uint32_t dwPacketNumber;
-        BPCB_XINPUT_GAMEPAD Gamepad;
-    } BPCB_XINPUT_STATE;
-    uint32_t XInputGetState(uint32_t dwUserIndex, BPCB_XINPUT_STATE* pState);
+        COUCH_XINPUT_GAMEPAD Gamepad;
+    } COUCH_XINPUT_STATE;
+    uint32_t XInputGetState(uint32_t dwUserIndex, COUCH_XINPUT_STATE* pState);
 
     // Configuration Manager: device list and device properties (battery level)
-    typedef struct { uint32_t Data1; uint16_t Data2; uint16_t Data3; uint8_t Data4[8]; } BPCB_GUID;
-    typedef struct { BPCB_GUID fmtid; uint32_t pid; } BPCB_DEVPROPKEY;
+    typedef struct { uint32_t Data1; uint16_t Data2; uint16_t Data3; uint8_t Data4[8]; } COUCH_GUID;
+    typedef struct { COUCH_GUID fmtid; uint32_t pid; } COUCH_DEVPROPKEY;
     uint32_t CM_Get_Device_ID_List_SizeW(uint32_t* pulLen, const uint16_t* pszFilter, uint32_t ulFlags);
     uint32_t CM_Get_Device_ID_ListW(const uint16_t* pszFilter, uint16_t* Buffer, uint32_t BufferLen, uint32_t ulFlags);
     uint32_t CM_Locate_DevNodeW(uint32_t* pdnDevInst, const uint16_t* pDeviceID, uint32_t ulFlags);
-    uint32_t CM_Get_DevNode_PropertyW(uint32_t dnDevInst, const BPCB_DEVPROPKEY* PropertyKey,
+    uint32_t CM_Get_DevNode_PropertyW(uint32_t dnDevInst, const COUCH_DEVPROPKEY* PropertyKey,
         uint32_t* PropertyType, uint8_t* PropertyBuffer, uint32_t* PropertyBufferSize, uint32_t ulFlags);
 
     // Keyboard input for the overlay shortcut
@@ -39,7 +39,7 @@ ffi.cdef [[
         uint32_t  dwFlags;
         uint32_t  time;
         uintptr_t dwExtraInfo;
-    } BPCB_KEYBDINPUT;
+    } COUCH_KEYBDINPUT;
     typedef struct {
         int32_t   dx;
         int32_t   dy;
@@ -47,12 +47,12 @@ ffi.cdef [[
         uint32_t  dwFlags;
         uint32_t  time;
         uintptr_t dwExtraInfo;
-    } BPCB_MOUSEINPUT;
+    } COUCH_MOUSEINPUT;
     typedef struct {
         uint32_t type;
-        union { BPCB_MOUSEINPUT mi; BPCB_KEYBDINPUT ki; } u;
-    } BPCB_INPUT;
-    uint32_t SendInput(uint32_t cInputs, BPCB_INPUT* pInputs, int32_t cbSize);
+        union { COUCH_MOUSEINPUT mi; COUCH_KEYBDINPUT ki; } u;
+    } COUCH_INPUT;
+    uint32_t SendInput(uint32_t cInputs, COUCH_INPUT* pInputs, int32_t cbSize);
     uint32_t MapVirtualKeyW(uint32_t uCode, uint32_t uMapType);
 
     // Which program is in front
