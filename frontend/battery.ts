@@ -1,8 +1,10 @@
-// Battery badge next to the clock in Big Picture and in the in-game overlay.
+// Battery badge next to the clock in Big Picture and in the in-game overlay,
+// and the music pause icon next to it.
 import { findModule } from 'millennium';
 import { fromBackend } from './json';
 import { contextKind, subscribePopups } from './windows';
 import { onSettings, settings } from './config';
+import { hideMusicButton, MUSIC_ID, placeMusicButton, removeMusicButton } from './musicbutton';
 
 const BADGE_ID = 'couch-mode-badge';
 const POLL_MS = 10000;
@@ -83,15 +85,34 @@ function makeBadge(doc: Document) {
 	return badge;
 }
 
+// Stay in the normal header layout; hide rather than overlap if the row is full.
+function overflows(doc: Document, el: HTMLElement | null, parent: HTMLElement) {
+	if (!el || el.style.display === 'none') return false;
+	const r = el.getBoundingClientRect(), width = doc.defaultView!.innerWidth;
+	return r.left < 0 || r.right > width || (parent.clientWidth > 0 && parent.scrollWidth > parent.clientWidth + 1);
+}
+
 function render(doc: Document) {
 	if (!docs.has(doc) || !alive) return;
 	if (!doc.defaultView || doc.defaultView.closed) { detach(doc); return; }
 	const clock = findClock(doc);
 	let badge = doc.getElementById(BADGE_ID);
-	if (!clock?.parentElement) { if (badge) badge.style.display = 'none'; return; }
+	if (!clock?.parentElement) {
+		if (badge) badge.style.display = 'none';
+		hideMusicButton(doc);
+		return;
+	}
 	if (!badge) badge = makeBadge(doc);
-	if (badge.parentElement !== clock.parentElement || badge.nextElementSibling !== clock)
-		clock.parentElement.insertBefore(badge, clock);
+	const parent = clock.parentElement;
+	if (badge.parentElement !== parent || badge.nextElementSibling !== clock) parent.insertBefore(badge, clock);
+	const css = classes();
+	const music = placeMusicButton(doc, parent, badge, css ? `${css.HeaderItem} ${css.Clickable || ''}`.trim() : 'HeaderItem');
+	renderBadge(badge);
+	if (overflows(doc, music, parent)) hideMusicButton(doc);
+	if (overflows(doc, badge, parent)) badge.style.display = 'none';
+}
+
+function renderBadge(badge: HTMLElement) {
 	if (settings()?.battery_badge === false || battery.status !== 'connected' || typeof battery.percent !== 'number') {
 		badge.style.display = 'none';
 		return;
@@ -102,11 +123,6 @@ function render(doc: Document) {
 	const title = `${battery.name || 'Controller'}: ${text}`;
 	if (badge.title !== title) { badge.title = title; badge.setAttribute('aria-label', title); }
 	badge.style.display = 'inline-flex';
-	// Stay in the normal header layout; hide rather than overlap if the row is full.
-	const parent = clock.parentElement, r = badge.getBoundingClientRect();
-	const width = doc.defaultView.innerWidth;
-	if (r.left < 0 || r.right > width || (parent.clientWidth > 0 && parent.scrollWidth > parent.clientWidth + 1))
-		badge.style.display = 'none';
 }
 
 function schedule(doc: Document) {
@@ -114,7 +130,7 @@ function schedule(doc: Document) {
 	if (!entry || entry.frame !== null || !alive || !doc.defaultView) return;
 	entry.frame = doc.defaultView.requestAnimationFrame(() => {
 		entry.frame = null;
-		try { render(doc); } catch (error) { console.warn('Battery badge render failed', error); }
+		try { render(doc); } catch (error) { console.warn('Battery badge or music icon render failed', error); }
 	});
 }
 
@@ -128,6 +144,7 @@ function detach(doc: Document) {
 	doc.defaultView?.removeEventListener('resize', entry.changed);
 	doc.defaultView?.removeEventListener('beforeunload', entry.unload);
 	doc.getElementById(BADGE_ID)?.remove();
+	removeMusicButton(doc);
 	docs.delete(doc);
 }
 
@@ -140,8 +157,8 @@ function attach(context: any) {
 	entry.begin = () => {
 		if (!alive || !docs.has(doc) || entry.observer) return;
 		entry.observer = new view.MutationObserver(records => {
-			// Ignore our own label updates; Steam mounts its header asynchronously.
-			if (records.some(r => !(r.target as Element).closest?.(`#${BADGE_ID}`))) schedule(doc);
+			// Ignore our own updates; Steam mounts its header asynchronously.
+			if (records.some(r => !(r.target as Element).closest?.(`#${BADGE_ID}, #${MUSIC_ID}`))) schedule(doc);
 		});
 		entry.observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 		schedule(doc);

@@ -14,6 +14,7 @@ export type Settings = {
 	music_file: string;
 	music_volume: number;
 	music_in_overlay: boolean;
+	music_paused: boolean;
 	windows: boolean;
 	unavailable_reason?: string;
 };
