@@ -1,9 +1,9 @@
 [plugin]
-id = "big-picture-controller-battery"
-name = "Big Picture Controller Battery"
-version = "2.1.0"
+id = "couch-mode"
+name = "Couch Mode"
+version = "3.0.0"
 author = "Ali"
-description = "Shows your Bluetooth controller's battery next to the clock in Big Picture and the game overlay. Also: hold Menu in a game to open the Steam overlay (can be turned off)."
+description = "Console-style extras for Steam Big Picture: controller battery next to the clock, hold Menu to open the overlay, mute the game while the overlay is open, and background music on Home and Library."
 
 [backend]
 entry = "backend/main.lua"
@@ -13,4 +13,4 @@ sources = ["backend/**/*.lua"]
 entry = "frontend/index.tsx"
 
 [compiler]
-output_path = "dist/big-picture-controller-battery.star"
+output_path = "dist/couch-mode.star"

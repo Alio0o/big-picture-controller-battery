@@ -5,8 +5,12 @@ local battery    = require("battery")
 local settings   = require("settings")
 local shortcut   = require("shortcut")
 local access     = require("access")
+local audio      = require("audio")
+local music      = require("music")
+local dialog     = require("dialog")
 
--- Small JSON encoder for the flat tables sent to the frontend.
+-- Small JSON encoder for the tables sent to the frontend. A table with keys
+-- 1..n is a list; an empty table is an object.
 local function quote(text)
     return '"' .. text:gsub('[%c"\\]', function(c)
         return string.format("\\u%04x", c:byte())
@@ -16,7 +20,12 @@ end
 local function encode(value)
     local kind = type(value)
     if kind == "table" then
-        local parts = {}
+        local parts, count = {}, 0
+        for _ in pairs(value) do count = count + 1 end
+        if count > 0 and count == #value then
+            for i = 1, #value do parts[i] = encode(value[i]) end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
         for k, v in pairs(value) do parts[#parts + 1] = quote(tostring(k)) .. ":" .. encode(v) end
         return "{" .. table.concat(parts, ",") .. "}"
     elseif kind == "string" then
@@ -68,8 +77,8 @@ end
 ---@return string
 function setSetting(key, value)
     local parsed = value
-    if key == "overlay_shortcut" then parsed = value == "true"
-    elseif key == "hold_ms" then parsed = tonumber(value) end
+    if settings.booleans[key] then parsed = value == "true"
+    elseif settings.numbers[key] then parsed = tonumber(value) end
     local ok, message = settings.set(key, parsed)
     return ok and "ok" or message
 end
@@ -96,16 +105,104 @@ function setXboxModeAccess(state)
     return result
 end
 
+---@ffi
+--- Whether a Steam window (Big Picture, its menus or popups) is the window
+--- in front: "yes", "no" or "unknown".
+---@return string
+function steamInFront()
+    if not win32.available then return "unknown" end
+    local ok, result = pcall(shortcut.steam_in_front)
+    if not ok then return "unknown" end
+    return result and "yes" or "no"
+end
+
+---@ffi
+--- Mutes the game with this process id (and the processes it started) while
+--- the Steam overlay is open. Returns a short summary for the log.
+---@param pid number
+---@return string
+function muteGame(pid)
+    if not settings.get().game_mute then return "off" end
+    local ok, result = pcall(audio.mute, pid)
+    if not ok then
+        logger:error("Muting the game failed: " .. tostring(result))
+        return "error"
+    end
+    return result
+end
+
+---@ffi
+--- Unmutes what muteGame muted. Returns how many audio sessions.
+---@return number
+function unmuteGame()
+    local ok, result = pcall(audio.unmute)
+    if not ok then
+        logger:error("Unmuting the game failed: " .. tostring(result))
+        return 0
+    end
+    return result
+end
+
+---@ffi
+--- The music files to play on Home and Library, from the music setting.
+---@return string
+function getMusic()
+    local ok, result = pcall(music.list)
+    if not ok then
+        logger:error("Listing music failed: " .. tostring(result))
+        return encode({ folder = "", tracks = {}, error = tostring(result) })
+    end
+    return encode(result)
+end
+
+---@ffi
+--- Part of a music file from getMusic, as base64. Empty at the end.
+---@param path string
+---@param offset number
+---@return string
+function readMusic(path, offset)
+    local ok, result = pcall(music.chunk, path, offset)
+    if not ok then
+        logger:error("Reading music failed: " .. tostring(result))
+        return ""
+    end
+    return result
+end
+
+---@ffi
+--- Opens Windows' Open dialog in the music folder to choose the music file.
+--- A file from elsewhere is copied into the folder. Returns the file name to
+--- save as music_file, "" when cancelled, or "error: ..." with a reason.
+---@return string
+function browseMusic()
+    local ok, path, err = pcall(dialog.choose, "file", music.ensure_folder())
+    if not ok or path == nil then
+        local message = tostring(ok and err or path)
+        logger:error("Music dialog failed: " .. message)
+        return "error: " .. message
+    end
+    if path == "" then return "" end
+    local okadopt, name, problem = pcall(music.adopt, path)
+    if not okadopt or not name then return "error: " .. tostring(okadopt and problem or name) end
+    return name
+end
+
 local function on_load()
     if win32.available then
         logger:info("Loaded on Millennium " .. millennium.version())
     else
         logger:warn("Inactive: " .. tostring(win32.reason))
     end
+    local ok, copied, reason = pcall(settings.migrate)
+    if not ok or copied == nil then
+        logger:warn("Settings from Big Picture Controller Battery not copied: " .. tostring(ok and reason or copied))
+    end
+    if not pcall(music.ensure_folder) then logger:warn("Could not create the music folder") end
     millennium.ready()
 end
 
 local function on_unload()
+    pcall(audio.unmute)
     logger:info("Unloaded")
 end
 

@@ -1,5 +1,6 @@
 {
-  "name": "big-picture-controller-battery",
+  "name": "couch-mode",
+  "version": "3.0.0",
   "private": true,
   "license": "MIT",
   "scripts": {

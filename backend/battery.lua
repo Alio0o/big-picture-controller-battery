@@ -12,7 +12,7 @@ local CM_GETIDLIST_FILTER_PRESENT = 0x00000100
 local keys
 
 local function make_key(d1, d2, d3, bytes, pid)
-    local key = win32.ffi.new("BPCB_DEVPROPKEY")
+    local key = win32.ffi.new("COUCH_DEVPROPKEY")
     key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3 = d1, d2, d3
     for i = 1, 8 do key.fmtid.Data4[i - 1] = bytes[i] end
     key.pid = pid

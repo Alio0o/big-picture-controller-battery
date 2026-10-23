@@ -1,10 +1,11 @@
 // Battery badge next to the clock in Big Picture and in the in-game overlay.
-import { findModule, Millennium } from 'millennium';
+import { findModule } from 'millennium';
 import { fromBackend } from './json';
+import { contextKind, subscribePopups } from './windows';
+import { onSettings, settings } from './config';
 
-const BADGE_ID = 'big-picture-controller-battery-badge';
+const BADGE_ID = 'couch-mode-badge';
 const POLL_MS = 10000;
-const HUB_KEY = '__bigPictureControllerBatteryHub_v1';
 
 type Battery = { status: string; percent?: number; name?: string; message?: string };
 type Entry = {
@@ -20,16 +21,8 @@ let alive = false;
 let timer: number | null = null;
 let headerClasses: any = null;
 let unsubscribe: (() => void) | null = null;
+let unsubscribeSettings: (() => void) | null = null;
 const docs = new Map<Document, Entry>();
-
-function contextKind(context: any): 'main' | 'overlay' | null {
-	const name = String(context?.m_strName || '');
-	const title = String(context?.m_strTitle || '');
-	if (/^SP BPM(?:_|$)/.test(name) || title === 'Steam Big Picture Mode') return 'main';
-	// Steam appends _uid<PID> to the in-game overlay's internal window name.
-	if (/^gamepadoverlay(?:_|$)/.test(name)) return 'overlay';
-	return null;
-}
 
 function classes() {
 	if (!headerClasses) {
@@ -99,7 +92,7 @@ function render(doc: Document) {
 	if (!badge) badge = makeBadge(doc);
 	if (badge.parentElement !== clock.parentElement || badge.nextElementSibling !== clock)
 		clock.parentElement.insertBefore(badge, clock);
-	if (battery.status !== 'connected' || typeof battery.percent !== 'number') {
+	if (settings()?.battery_badge === false || battery.status !== 'connected' || typeof battery.percent !== 'number') {
 		badge.style.display = 'none';
 		return;
 	}
@@ -160,41 +153,6 @@ function attach(context: any) {
 	else entry.begin();
 }
 
-// Millennium's window hook has no removal API, so one bridge is registered
-// per Steam UI lifetime and plugin reloads only swap the subscriber.
-function subscribePopups(callback: (context: any) => void) {
-	const w = window as any;
-	let hub = w[HUB_KEY];
-	if (!hub) {
-		hub = w[HUB_KEY] = { subscribers: new Set(), contexts: new Set(), seen: new WeakSet(), registered: false };
-		hub.dispatch = (context: any) => {
-			if (!contextKind(context) || !context?.m_popup?.document) return;
-			for (const ref of hub.contexts) {
-				const old = ref.deref();
-				if (!old?.m_popup || old.m_popup.closed) hub.contexts.delete(ref);
-			}
-			if (!hub.seen.has(context)) { hub.seen.add(context); hub.contexts.add(new WeakRef(context)); }
-			for (const fn of hub.subscribers) fn(context);
-		};
-	}
-	hub.subscribers.add(callback);
-	if (!hub.registered) {
-		if (typeof Millennium?.AddWindowCreateHook !== 'function') {
-			hub.subscribers.delete(callback);
-			throw new Error('Millennium AddWindowCreateHook unavailable');
-		}
-		Millennium.AddWindowCreateHook(hub.dispatch);
-		hub.registered = true;
-	} else {
-		for (const ref of hub.contexts) {
-			const context = ref.deref(), doc = context?.m_popup?.document;
-			if (!doc?.defaultView || doc.defaultView.closed) hub.contexts.delete(ref);
-			else callback(context);
-		}
-	}
-	return () => { hub.subscribers.delete(callback); };
-}
-
 async function poll() {
 	if (!alive) return;
 	try {
@@ -210,6 +168,7 @@ async function poll() {
 export function startBattery() {
 	alive = true;
 	unsubscribe = subscribePopups(attach);
+	unsubscribeSettings = onSettings(() => { for (const doc of docs.keys()) schedule(doc); });
 	void poll();
 }
 
@@ -219,5 +178,7 @@ export function stopBattery() {
 	timer = null;
 	unsubscribe?.();
 	unsubscribe = null;
+	unsubscribeSettings?.();
+	unsubscribeSettings = null;
 	for (const doc of Array.from(docs.keys())) detach(doc);
 }
