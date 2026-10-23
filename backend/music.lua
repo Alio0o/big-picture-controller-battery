@@ -4,7 +4,7 @@
 -- (wherever Windows keeps it), created when the plugin starts. The music
 -- setting is the name of one file in it; without one, the first file in the
 -- folder plays. Steam's UI cannot open local files itself, so the frontend
--- reads the file from here in pieces. Only the listed file can be read.
+-- reads the file from here in pieces. Only music files in the folder can be read.
 -- Files go through the Windows API, so names in any language work.
 local win32 = require("win32")
 local settings = require("settings")
@@ -18,7 +18,6 @@ local TYPES = {
     m4a = "audio/mp4", aac = "audio/aac", wav = "audio/wav", flac = "audio/flac", webm = "audio/webm",
 }
 
-local tracks = {}
 local folder_override = nil -- for tools/check-backend.lua
 
 function M.folder()
@@ -67,7 +66,6 @@ end
 -- tracks holds the one file that plays.
 function M.list()
     local result = { folder = M.folder() or "", tracks = {}, files = 0, chosen = "" }
-    tracks = {}
     if not win32.available then
         result.error = win32.reason
         return result
@@ -89,7 +87,6 @@ function M.list()
         return result
     end
     local path = folder .. "\\" .. pick.name
-    tracks[path] = pick.size
     result.chosen = pick.name
     result.tracks[1] = { path = path, name = pick.name, size = pick.size, type = pick.type }
     return result
@@ -135,17 +132,24 @@ local function base64(data)
 end
 M.base64 = base64
 
--- Part of a listed file as base64, starting at offset. Empty at the end.
+-- Part of a music file as base64, starting at offset. Empty at the end.
+-- Any music file directly in the music folder can be read, nothing else. This
+-- does not depend on the last list(), so the settings page listing the
+-- folder never breaks a read that is under way.
 function M.chunk(path, offset)
-    local size = tracks[path]
-    if not size then error("not a listed music file", 0) end
+    local folder = M.folder()
+    local name = path:match("([^\\/]+)$")
+    if not folder or not name or path:sub(1, #path - #name - 1):lower() ~= folder:lower() or not kind(name) then
+        error("not a music file in " .. tostring(folder), 0)
+    end
+    local size = win32.file_size(path)
+    if not size or size > MAX_SIZE then error("cannot read the music file", 0) end
     offset = tonumber(offset) or 0
     if offset < 0 or offset >= size then return "" end
     local data = win32.read_file(path, offset, math.min(CHUNK, size - offset))
     if not data then error("cannot read the music file", 0) end
     return base64(data)
 end
-
 M.CHUNK = CHUNK
 
 return M

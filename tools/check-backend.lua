@@ -125,7 +125,8 @@ check("chosen file plays", list.chosen == "b.MP3" and list.tracks[1].size == 900
 local song = list.tracks[1].path
 local first, second = readMusic(song, 0), readMusic(song, music.CHUNK)
 check("music read in pieces", #first == math.ceil(music.CHUNK / 3) * 4 and #second > 0 and readMusic(song, 900000) == "")
-check("music refuses files that do not play", readMusic(folder .. "\\a.ogg", 0) == "")
+check("music reads any music file in the folder", readMusic(folder .. "\\a.ogg", 0) == "YWJj")
+check("music refuses files outside the folder", readMusic(base .. "\\a.ogg", 0) == "" and readMusic(folder .. "\\..\\a.ogg", 0) == "")
 setSetting("music_file", "gone.mp3")
 check("missing chosen file falls back to the first", music.list().chosen == "a.ogg")
 check("music json", getMusic():match('"chosen":"a.ogg"') ~= nil and getMusic():match('"files":3') ~= nil)

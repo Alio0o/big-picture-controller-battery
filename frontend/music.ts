@@ -125,7 +125,7 @@ function currentPath(): string | null {
 	}
 	if (!warnedPath) {
 		warnedPath = true;
-		console.warn('Couch Mode music: Big Picture page unknown, so the store is noticed only by its videos.');
+		console.log('Couch Mode music: Big Picture page unknown, so the store is noticed only by its videos.');
 	}
 	return null;
 }
@@ -207,6 +207,8 @@ function tick() {
 	audio.volume = level * level * volume; // fades sound even to the ear
 	if (level > 0 && audio.paused && loadedPath) {
 		audio.play().catch(error => {
+			// A pause or a new file while starting cancels play(); that is normal.
+			if (error?.name === 'AbortError') return;
 			if (!warnedPlay) { warnedPlay = true; console.warn('Couch Mode music could not start', error); }
 		});
 	} else if (level === 0 && !audio.paused) {
